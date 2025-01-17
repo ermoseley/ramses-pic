@@ -1668,14 +1668,36 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
  subroutine random_seed_fixed(seed)
    implicit none
    integer, dimension(1:8), intent(in) :: seed
-   integer :: state(8), i
- 
+   integer, allocatable :: state(:)
+   integer :: i, n
+
+   ! Query the size required for the seed array
+   call random_seed(size=n)
+   allocate(state(n))
+   
    ! Generate a deterministic state array from the seed
-   do i = 1, 8
+   do i = 1, n
       state(i) = mod(seed(1) + i * 7919, 2147483647) ! Use a prime multiplier
    end do
  
    ! Set the random number generator seed
    call random_seed(put=state)
+   
+   ! Clean up
+   deallocate(state)
  end subroutine
+
+!  subroutine random_seed_fixed(seed)
+!    implicit none
+!    integer, dimension(1:8), intent(in) :: seed
+!    integer :: state(8), i
+ 
+!    ! Generate a deterministic state array from the seed
+!    do i = 1, 8
+!       state(i) = mod(seed(1) + i * 7919, 2147483647) ! Use a prime multiplier
+!    end do
+ 
+!    ! Set the random number generator seed
+!    call random_seed(put=state)
+!  end subroutine
  
