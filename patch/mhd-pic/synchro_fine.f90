@@ -1710,7 +1710,7 @@ subroutine InitPicParams(sizes,charges,dust,cosr,lorentzf,ind_part,np)
 
   ivar_mhd_pic=9
 
-  if (ddex.ne.0.0 .and. .not. (universal_drag.or.universal_charge.or.size_bins).and. .not. lognormal .and. .not. (astrodust2.or.astrodust4))then ! if there is a spectrum of grain sizes...
+  if (ddex.ne.0.0 .and. .not. (universal_drag.or.universal_charge.or.size_bins).and. .not. lognormal .and. .not. (astrodust))then ! if there is a spectrum of grain sizes...
     do j=1,np ! construct charges and grain sizes
       if(dust(j))then
         sizes(j)=grain_size*1.0d1**((ddex*(idp(ind_part(j))-1.0d0))/(ndust*2.0d0**(3.*levelmin)-1.0d0))
@@ -1719,10 +1719,10 @@ subroutine InitPicParams(sizes,charges,dust,cosr,lorentzf,ind_part,np)
         charges(j)=cr_c_fraction*cr_charge_to_mass/lorentzf(j)
       endif
     end do
-    elseif (astrodust2) then ! if we use the Hensley & Draine size distribution...
+    elseif (astrodust) then ! if we use the Hensley & Draine size distribution...
       do j=1,np ! construct charges and grain sizes
         if(dust(j))then
-          sizes(j)=grain_size*2.0d0**(2.0d0*((idp(ind_part(j))-1.0d0)/(ndust*2.0d0**(3.*levelmin)-1.0d0)-0.5d0))
+          sizes(j)=grain_size*1.0d1**(ddex*((idp(ind_part(j))-1.0d0)/(ndust*2.0d0**(3.*levelmin)-1.0d0)-0.5d0))
           charges(j)=du_charge_to_mass*(sizes(j)/grain_size)**charge_slope
         elseif(cosr(j))then
           charges(j)=cr_c_fraction*cr_c_fraction*cr_charge_to_mass/lorentzf(j)
@@ -1730,16 +1730,6 @@ subroutine InitPicParams(sizes,charges,dust,cosr,lorentzf,ind_part,np)
         endif
       end do
 
-      elseif (astrodust4) then ! if we use the Hensley & Draine size distribution...
-         do j=1,np ! construct charges and grain sizes
-           if(dust(j))then
-             sizes(j)=grain_size*2.0d0**(2.0d0*((idp(ind_part(j))-1.0d0)/(ndust*2.0d0**(3.*levelmin)-1.0d0)-0.5d0))
-             charges(j)=du_charge_to_mass*(sizes(j)/grain_size)**charge_slope
-           elseif(cosr(j))then
-             charges(j)=cr_c_fraction*cr_c_fraction*cr_charge_to_mass/lorentzf(j)
-             ! Also need to divide by cr_c_fraction.
-           endif
-         end do
          
     elseif (ddex.ne.0.0 .and. lognormal)then ! if there is a spectrum of grain sizes...
       do j=1,np ! construct charges and grain sizes

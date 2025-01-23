@@ -384,7 +384,7 @@ end subroutine init_ids
     integer::nxny,nx_loc,trdim
     real(dp),dimension(1:3)::xbound
     real(dp),dimension(1:3)::skip_loc,phi3a
-    real(dp)::scale,cr_boost_lf,cr_boost_mag,a,m ! a, m are temp variables used for astrodust.
+    real(dp)::scale,cr_boost_lf,cr_boost_mag
 
     ! Local constants
     nxny=nx*ny
@@ -902,45 +902,35 @@ end subroutine init_ids
                             typep(ipart)%tag = 0
                           endif
                           ! assign masses
-                          if (ddex.ne.0.0d0 .and. ipic .le. ndust .and. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust))then
+                          if (ddex.ne.0.0d0 .and. ipic .le. ndust .and. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust2.or.astrodust4))then
                             mp(ipart)=1.151292546497023*dust_to_gas*ddex*&
                             &(0.5d0**(3*levelmin))*1.0d1**&
                             &(0.5*ddex*(idp(ipart)-1.0d0)/&
                             &(ndust*2.0d0**(3*levelmin)-1.0d0))/&
                             &(ndust*(1.0d1**(0.5*ddex)-1.0d0)) ! gives grains an MRN spectrum
-                          elseif((ddex .eq. 0.0d0 .and.(.not. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust))).and. ipic .le. ndust)then
+                          elseif((ddex .eq. 0.0d0 .and.(.not. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust2.or.astrodust4))).and. ipic .le. ndust)then
                             mp(ipart) = 0.5d0**(3*ilevel) * dust_to_gas/ndust
 
-                            elseif(ddex.ne.0.0d0 .and. astrodust .and. ipic .le. ndust)then
+                            elseif(astrodust2 .and. ipic .le. ndust)then
                               ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
                               ! q will go from -1 to 1. q = Log[a_grain/peak]
                               ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
                               
-                              q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0) ! -ddex/2 to +ddex/2
-                              a = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
-                              call HD23(m,ddex,a)
-                              mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*m
-                              ! µ*distribution*dLoga
-                           !  elseif(astrodust2 .and. ipic .le. ndust)then
-                           !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
-                           !    ! q will go from -1 to 1. q = Log[a_grain/peak]
-                           !    ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
-                              
-                           !    q = 1.38629d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
+                              q = 1.38629d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
                           
-                           !    mp(ipart)=dust_to_gas*1.33712152128185*& ! Next factor is dLoga
-                           !       &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
+                              mp(ipart)=dust_to_gas*1.33712152128185*& ! Next factor is dLoga
+                                 &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
 
-                           !  elseif(astrodust4 .and. ipic .le. ndust)then
-                           !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
-                           !    ! q will go from -1 to 1. q = Log[a_grain/peak]
-                           !    ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
-                           !    if(myid==1)write(*,*) 'astrodust4'
-                           !    q = 2.77259d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
-                           !    if(myid==1)write(*,*) 'astrodust4 qs computed'
-                           !    mp(ipart)=dust_to_gas*2.223987055683838*& ! Next factor is dLoga
-                           !       &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
-                           !    if(myid==1)write(*,*) 'astrodust4 mps computed'
+                            elseif(astrodust4 .and. ipic .le. ndust)then
+                              ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
+                              ! q will go from -1 to 1. q = Log[a_grain/peak]
+                              ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
+                              if(myid==1)write(*,*) 'astrodust4'
+                              q = 2.77259d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
+                              if(myid==1)write(*,*) 'astrodust4 qs computed'
+                              mp(ipart)=dust_to_gas*2.223987055683838*& ! Next factor is dLoga
+                                 &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
+                              if(myid==1)write(*,*) 'astrodust4 mps computed'
                            elseif(ddex.ne.0.0d0 .and. lognormal .and. ipic .le. ndust)then
                            ! ddex/4 = standard deviation in log10-space
                            ! This goes from -2*std to +2*std
@@ -1699,38 +1689,6 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
    deallocate(state)
  end subroutine
 
- subroutine HD23(m,ddex,a)
-! This subroutine approximates the HD23 grain size distribution (astrodust)
-! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
-! The normalization is not analytic, so we have developed a fit that will approximately 
-! normalize the distribution. 
-! a is the grain size, ddex is the width of the distribution we are covering,
-! m is the mass of the particle, later to be rescaled by a few prefactors.
-! This function is valid for ddex between 0.1 and 2. Outside this range, 
-! the normalization will be quite wrong.
-real(dp)::euler_e=2.718281828459045
-real(dp),intent(out)::m
-real(dp),intent(in)::a,ddex
-
-!a = 10**(ddex*qs) ! a = 1 is the peak of the distribution.
-   m=(0.0013669699558849478*(0.041384400713017494 + &
-         (-1 + 10**(ddex/2.))**0.7363399037812469)*&
-       euler_e**(-0.807*Log(2266.01*a)**2 + 0.157*Log(2266.01*a)**3 + &
-          0.00796*Log(2266.01*a)**4 - 0.00168*Log(2266.01*a)**5))/&
-     ((-1 + 10**(ddex/2.))**0.7363399037812469*a**0.3999999999999999*&
-       (1.0973003648362687 - 35.7901792801748*ddex**2 + 532.8851241262813*ddex**3 - &
-         4020.259433253929*ddex**4 + 19315.123125118076*ddex**5 - &
-         64258.08633884704*ddex**6 + 154057.10091248745*ddex**7 - &
-         271097.786822826*ddex**8 + 350730.5310628749*ddex**9 - &
-         327147.8274984879*ddex**10 + 206389.52823714467*ddex**11 - &
-         69577.95259703783*ddex**12 - 8452.721330530461*ddex**13 + &
-         21303.620388645693*ddex**14 - 7819.949419503629*ddex**15 - &
-         1848.598053082152*ddex**16 + 3034.3708277145115*ddex**17 - &
-         1416.1158288772997*ddex**18 + 358.67512005565743*ddex**19 - &
-         49.850941792208275*ddex**20 + 3.0021197715391623*ddex**21)*&
-       (1 - euler_e**(-1.840442662476168*(-1 + 10**(ddex/2.))**0.9760619713098426)))
-
-end subroutine HD23
 !  subroutine random_seed_fixed(seed)
 !    implicit none
 !    integer, dimension(1:8), intent(in) :: seed

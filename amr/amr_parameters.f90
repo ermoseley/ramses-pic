@@ -208,8 +208,8 @@ module amr_parameters
   logical :: shuffled_ids=.false.    ! Shuffles the particle IDs so that you have uniformly distributed grain properties in space.                        
   integer:: grain_sampling_rate=1 ! For use with size_bins. Makes a grid in charge-drag space when greater than 1. Must divide ndust evenly.                                                                                                               
   logical :: lognormal = .false.   ! Creates a log-normal grain distribution from +2*sigma to -2*sigma centered at grain_size with sigma=ddex/4                                                                                                            
-  logical :: astrodust2 = .false. ! Creates an astrodust distribution (Hensley & Draine '23) that extends from 0.5*peak to 2*peak (peak (grain_size) = 0.23 microns)                                                                                       
-  logical :: astrodust4 = .false. ! Creates an astrodust distribution (Hensley & Draine '23) that extends from 0.25*peak to 4*peak (peak (grain_size) = 0.23 microns)                                                                                      
+  logical :: astrodust = .false. ! Creates an astrodust distribution (Hensley & Draine '23) that extends from peak*10**(-ddex/2) to peak*10**(+ddex/2 (peak (grain_size) = 0.23 microns)                                                                                       
+                                                                               
 
 
   ! PIC cosmic ray parameters (Not yet implemented, but here more as a to-do list.)                                           

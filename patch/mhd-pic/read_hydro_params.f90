@@ -103,7 +103,7 @@ subroutine read_hydro_params(nml_ok)
     &,ntrajectories,supersonic_drag,stopping_rate&
     & ,ndust,ddex,charge_slope,real_ids,gyrofactor,ntracer, mhd_pic_loadf,&
     &back_reaction, mrn_spectrum, universal_charge, universal_drag,size_bins,&
-    &grain_sampling_rate,chdex,lognormal, astrodust2, astrodust4, shuffled_ids
+    &grain_sampling_rate,chdex,lognormal, astrodust, shuffled_ids
 
   ! Cosmic ray parameters
   namelist/cr_params/pic_cr,cr_charge_to_mass,cr_lorentzf, cr_to_gas, ncr, energy_bins,&
