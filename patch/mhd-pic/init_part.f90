@@ -1739,6 +1739,42 @@ real(dp),intent(in)::a
        (1 - euler_e**(-1.840442662476168*(-1 + 10**(ddex/2.))**0.9760619713098426)))
 
 end subroutine HD23
+
+subroutine HD23alt(m,a)
+   ! This subroutine approximates the HD23 grain size distribution (astrodust)
+   ! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
+   ! The normalization is not analytic, so we have developed a fit that will approximately 
+   ! normalize the distribution. 
+   ! a is the grain size, ddex is the width of the distribution we are covering,
+   ! m is the mass of the particle, later to be rescaled by a few prefactors.
+   ! This function is valid for ddex between 0.1 and 2. Outside this range, 
+   ! the normalization will be quite wrong.
+   
+   use amr_commons
+   use pm_commons
+   use pm_parameters
+   use clfind_commons
+   use mpi_mod
+   implicit none
+   
+   real(dp)::euler_e=2.718281828459045
+   real(dp),intent(out)::m,norm
+   real(dp),intent(in)::a,ac
+   
+   do i=1,1000 ! We don't want to have to recompute this all the time.
+      norm=norm + ((10**(ddex/2)-10**(-ddex/2))/1000)*(euler_e**&
+      (-0.807*Log(2266.01*ac)**2 + 0.157*Log(2266.01*a)**3 +& 
+         0.00796*Log(2266.01*ac)**4 - 0.00168*Log(2266.01*a)**5))/ac**1.4 ! da/a = dloga
+      ac = ac + (10**(ddex/2)-10**(-ddex/2))/1000
+   end do
+   !a = 10**(ddex*qs) ! a = 1 is the peak of the distribution.
+      m=        (euler_e**&
+      (-0.807*Log(2266.01*a)**2 + 0.157*Log(2266.01*a)**3 +&
+       0.00796*Log(2266.01*a)**4 - 0.00168*Log(2266.01*a)**5))/(norm*a**0.4)
+   ! Numerically integrate over all possible values of a, from a*10**(-ddex/2) to a*10**(ddex/2)
+
+      
+   end subroutine HD23alt
 !  subroutine random_seed_fixed(seed)
 !    implicit none
 !    integer, dimension(1:8), intent(in) :: seed
