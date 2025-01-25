@@ -22,7 +22,7 @@
   integer::i1,i2,i3
   integer::i1_min=0,i1_max=0,i2_min=0,i2_max=0,i3_min=0,i3_max=0
   integer::buf_count,indglob, seed_base = 11011
-  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q,a,m,euler_e=2.718281828459045
+  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q,euler_e=2.718281828459045
   real(dp)::min_mdm_cpu,min_mdm_all
   real(dp),dimension(1:twotondim,1:3)::xc
   integer ,dimension(1:nvector)::ind_grid,ind_cell,ii
@@ -384,7 +384,7 @@ end subroutine init_ids
     integer::nxny,nx_loc,trdim
     real(dp),dimension(1:3)::xbound
     real(dp),dimension(1:3)::skip_loc,phi3a
-    real(dp)::scale,cr_boost_lf,cr_boost_mag,a,m ! a, m are temp variables used for astrodust.
+    real(dp)::scale,cr_boost_lf,cr_boost_mag,aa,em ! a, m are temp variables used for astrodust.
 
     ! Local constants
     nxny=nx*ny
@@ -917,9 +917,9 @@ end subroutine init_ids
                               ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
                               
                               q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0) ! -ddex/2 to +ddex/2
-                              a = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
-                              call HD23(m,ddex,a)
-                              mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*m
+                              aa = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
+                              call HD23(em,ddex,aa)
+                              mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
                               ! µ*distribution*dLoga
                            !  elseif(astrodust2 .and. ipic .le. ndust)then
                            !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
@@ -1718,7 +1718,7 @@ implicit none
 
 real(dp)::euler_e=2.718281828459045
 real(dp),intent(out)::m
-real(dp),intent(in)::a,ddex
+real(dp),intent(in)::a
 
 !a = 10**(ddex*qs) ! a = 1 is the peak of the distribution.
    m=(0.0013669699558849478*(0.041384400713017494 + &
