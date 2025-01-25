@@ -22,7 +22,7 @@
   integer::i1,i2,i3
   integer::i1_min=0,i1_max=0,i2_min=0,i2_max=0,i3_min=0,i3_max=0
   integer::buf_count,indglob, seed_base = 11011
-  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q, euler_e=2.718281828459045
+  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q,a,m,euler_e=2.718281828459045
   real(dp)::min_mdm_cpu,min_mdm_all
   real(dp),dimension(1:twotondim,1:3)::xc
   integer ,dimension(1:nvector)::ind_grid,ind_cell,ii
@@ -1708,6 +1708,14 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
 ! m is the mass of the particle, later to be rescaled by a few prefactors.
 ! This function is valid for ddex between 0.1 and 2. Outside this range, 
 ! the normalization will be quite wrong.
+
+use amr_commons
+use pm_commons
+use pm_parameters
+use clfind_commons
+use mpi_mod
+implicit none
+
 real(dp)::euler_e=2.718281828459045
 real(dp),intent(out)::m
 real(dp),intent(in)::a,ddex
