@@ -918,7 +918,7 @@ end subroutine init_ids
                               
                               q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0) ! -ddex/2 to +ddex/2
                               aa = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
-                              call HD23(em,ddex,aa)
+                              call HD23(em,aa)
                               mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
                               ! µ*distribution*dLoga
                            !  elseif(astrodust2 .and. ipic .le. ndust)then
@@ -1699,7 +1699,7 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
    deallocate(state)
  end subroutine
 
- subroutine HD23(m,ddex,a)
+ subroutine HD23(m,a)
 ! This subroutine approximates the HD23 grain size distribution (astrodust)
 ! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
 ! The normalization is not analytic, so we have developed a fit that will approximately 
