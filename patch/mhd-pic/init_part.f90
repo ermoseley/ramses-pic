@@ -1718,7 +1718,6 @@ subroutine HD23norm(norm)
    use clfind_commons
    use mpi_mod
    implicit none
-   implicit none
 
    real(dp), intent(out) :: norm
    real(dp) :: euler_e, a_start, a_end, step_size, a
