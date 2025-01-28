@@ -919,7 +919,7 @@ end subroutine init_ids
                               
                               q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0) ! -ddex/2 to +ddex/2
                               aa = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
-                              call HD23(em,aa,norm) ! Hensley & Draine (2023) grain size distribution
+                              call normalizedHD23(em,aa,norm) ! Hensley & Draine (2023) grain size distribution
                               ! Centered at 0.23 micron, then a factor of 10^(ddex/2) to either side.
                               mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
                               ! µ*distribution*dLoga
