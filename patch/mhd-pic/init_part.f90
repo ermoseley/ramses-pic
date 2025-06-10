@@ -32,8 +32,8 @@
   integer,allocatable,dimension(:)::isp
   integer(i8b),allocatable,dimension(:)::isp8
   integer(1),allocatable,dimension(:)::ii1
-  real(dp),allocatable,dimension(:,:)::init_plane,init_plane_x,init_plane_m
-  real(dp),allocatable,dimension(:,:)::init_plane_rid ! real id to be converted to int
+  real(kind=4),allocatable,dimension(:,:)::init_plane,init_plane_x,init_plane_m
+  real(kind=8),allocatable,dimension(:,:)::init_plane_rid ! real id to be converted to int
   integer(i8b),allocatable,dimension(:,:)::init_plane_id
   real(dp),allocatable,dimension(:,:,:)::init_array,init_array_x,init_array_m
   real(dp),dimension(1:ntracer):: tdx,tdy,tdz
