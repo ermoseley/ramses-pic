@@ -354,10 +354,10 @@ subroutine move1(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,xtondim)
   ! CIC at level ilevel (dd: right cloud boundary; dg: left cloud boundary)
   do idim=1,ndim
      do j=1,np
-        dd(j,idim)=x(j,idim)+0.5D0
-        id(j,idim)=int(dd(j,idim))
-        dd(j,idim)=dd(j,idim)-id(j,idim)
-        dg(j,idim)=1.0D0-dd(j,idim)
+        dd(j,idim)=x(j,idim)+0.5D0 ! x is NOT xp. This is adjusted to being relative to a smaller grid.
+        id(j,idim)=int(dd(j,idim)) 
+        dd(j,idim)=dd(j,idim)-id(j,idim) ! How much particle extends to the right of particle parent cell id(j,idim).
+        dg(j,idim)=1.0D0-dd(j,idim) ! How much particle extends to the left of particle parent cell id(j,idim).
         ig(j,idim)=id(j,idim)-1
      end do
   end do
@@ -871,40 +871,22 @@ end do
      end do
   endif
 
-!  if (trajectories(1)>0)then
-!     i=1
-!     do while(trajectories(i) .ne. 0)!Various fields interpolated to particle positions
-!          do j=1,np
-!              if( trajectories(i) .eq. idp(ind_part(j)) )then
-!                 write(25+myid,*)t-dtnew(ilevel),idp(ind_part(j)),dgr(j),ddgr(j), & ! Old time
-!                      & xp(ind_part(j),1),xp(ind_part(j),2),xp(ind_part(j),3),& ! Old particle position
-!                      & vp(ind_part(j),1),vp(ind_part(j),2),vp(ind_part(j),3),& ! Old particle velocity
-!                      &  uu(j,1),uu(j,2),uu(j,3),& ! Old fluid velocity
-!                      &  bb(j,1),bb(j,2),bb(j,3)! Old magnetic field.
-!                      ! & new_vp(j,1),new_vp(j,2),new_vp(j,3) ! NEW particle velocity (for comparison)
-!              endif
-!         end do
-!        i=i+1
-!     end do
-!  endif
-
-  if (trajectories(1)>0) then ! Formatted output for easier input and sorting
-   i = 1
-   do while (trajectories(i) .ne. 0) ! Various fields interpolated to particle positions
-       do j = 1, np
-           if (trajectories(i) .eq. idp(ind_part(j))) then
-               write(25 + myid, '(F10.5, 1X, I8, 1X, F10.5, 1X, F10.5, 1X, 3F10.5, 1X, 3F10.5, 1X, 3F10.5, 1X, 3F10.5, 1X, 3F10.5)')&
-               t - dtnew(ilevel), idp(ind_part(j)), dgr(j), ddgr(j), &
-               xp(ind_part(j), 1), xp(ind_part(j), 2), xp(ind_part(j), 3),&
-               vp(ind_part(j), 1), vp(ind_part(j), 2), vp(ind_part(j), 3),&
-               uu(j, 1), uu(j, 2), uu(j, 3),&
-               bb(j, 1), bb(j, 2), bb(j, 3)
-               ! & new_vp(j,1), new_vp(j,2), new_vp(j,3) ! NEW particle velocity (for comparison)
-           endif
-       end do
-       i = i + 1
-   end do
-endif
+ if (trajectories(1)>0)then
+    i=1
+    do while(trajectories(i) .ne. 0)!Various fields interpolated to particle positions
+         do j=1,np
+             if( trajectories(i) .eq. idp(ind_part(j)) )then
+                write(25+myid,*)t-dtnew(ilevel),idp(ind_part(j)),dgr(j),ddgr(j), & ! Old time
+                     & xp(ind_part(j),1),xp(ind_part(j),2),xp(ind_part(j),3),& ! Old particle position
+                     & vp(ind_part(j),1),vp(ind_part(j),2),vp(ind_part(j),3),& ! Old particle velocity
+                     &  uu(j,1),uu(j,2),uu(j,3),& ! Old fluid velocity
+                     &  bb(j,1),bb(j,2),bb(j,3)! Old magnetic field.
+                     ! & new_vp(j,1),new_vp(j,2),new_vp(j,3) ! NEW particle velocity (for comparison)
+             endif
+        end do
+       i=i+1
+    end do
+ endif
 
  if (ntrajectories>0)then
    do i=1,ntrajectories!Various fields interpolated to particle positions
@@ -953,14 +935,14 @@ endif
      end do
   endif
 
-  if(pic_dust .and. ((accel_gr(1).ne.0).or.(accel_gr(2).ne.0).or.(accel_gr(3).ne.0)))then
-     do idim=1,ndim
-        do j=1,np
-          if(dust(j))then
-            ff(j,idim)=ff(j,idim)+accel_gr(idim)
-          endif
-        end do
-     end do
+  if(pic_dust .and. any(accel_gr(1:3) /= 0.0))then
+      do j=1,np
+         if(dust(j))then
+            do idim=1,ndim
+               ff(j,idim)=ff(j,idim)+accel_gr(idim)
+            end do
+         endif
+      end do
   endif
 
   ! effective lorentz factors. vp is the 4-velocity for crs.
