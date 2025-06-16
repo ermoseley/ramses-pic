@@ -924,13 +924,13 @@ end subroutine init_ids
                               mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
                               if ((myid==1) .and. (ipart==1))then
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 write(*,*)"idp, mp, em, norm for ipart 1 == "
+                                 write(*,*)"idp, em, q, aa: "
                                  write(*,*) idp(ipart),em,q,aa
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                               endif
                               if ((myid==1) .and. (abs(q).ge. ddex*0.5d0) .and. (count == 0))then
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 write(*,*)"q is out of bounds!"
+                                 write(*,*)"q is out of bounds! idp, q:"
                                  write(*,*) idp(ipart),q
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                                  count = 1
