@@ -19,7 +19,7 @@
   integer::i,j,k,igrid,ncache,ngrid,iskip,ipic
   integer::ind,ix,iy,iz,ilun,icpu
   integer:: idu, icr, itr
-  integer::i1,i2,i3
+  integer::i1,i2,i3, count ! count is temporary and will be removed.
   integer::i1_min=0,i1_max=0,i2_min=0,i2_max=0,i3_min=0,i3_max=0
   integer::buf_count,indglob, seed_base = 11011
   real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q,euler_e=2.718281828459045
@@ -925,8 +925,22 @@ end subroutine init_ids
                               if ((myid==1) .and. (ipart==1))then
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
                                  write(*,*)"idp, mp, em, norm for ipart 1 == "
-                                 write(*,*) idp(ipart), mp(ipart),em,norm
+                                 write(*,*) idp(ipart),em,q,aa
                                  write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              endif
+                              if ((myid==1) .and. (abs(q).ge. ddex*0.5d0) .and. (count == 0))then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"q is out of bounds!"
+                                 write(*,*) idp(ipart),q
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 count = 1
+                              endif
+                              
+                              if ((myid==1) .and. (idp(ipart)> 2.0d0**(3*levelmin)) .and. (count == 0))then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"ID is bigger than resolution!"
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 count = 1
                               endif
                               ! µ*distribution*dLoga
                            !  elseif(astrodust2 .and. ipic .le. ndust)then
