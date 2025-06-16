@@ -922,6 +922,12 @@ end subroutine init_ids
                               call normalizedHD23(em,aa,norm) ! Hensley & Draine (2023) grain size distribution
                               ! Centered at 0.23 micron, then a factor of 10^(ddex/2) to either side.
                               mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
+                              if (myid==1) .and. (ipart==1)then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"mp, em, norm for ipart 1 == "
+                                 write(*,*) mp(ipart),em,norm
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              endif
                               ! µ*distribution*dLoga
                            !  elseif(astrodust2 .and. ipic .le. ndust)then
                            !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
