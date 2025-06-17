@@ -931,9 +931,9 @@ end subroutine init_ids
                          else
                            vp(ipart,idim)=init_array(i1,i2,i3)
                          endif
-                         if (stationary_particles) then
-                            vp(ipart,idim)=0.0d0 ! Stationary particles have zero velocity.
-                         end if
+                        !  if (stationary_particles) then
+                        !     vp(ipart,idim)=0.0d0 ! Stationary particles have zero velocity.
+                        !  end if
                          if(.not. read_pos)then
                             dispmax=max(dispmax,abs(init_array(i1,i2,i3)/dx))
                          else
