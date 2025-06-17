@@ -265,7 +265,6 @@
 contains
 
 subroutine init_ids(npic)
-   implicit none
    ! Include necessary modules and definitions.
    use amr_commons
    use pm_commons
@@ -273,6 +272,8 @@ subroutine init_ids(npic)
    use amr_parameters
    use mpi_mod
    use clfind_commons
+   implicit none
+
 
    ! Declaration of variables
    integer(i8b) :: ii, twotondimlevelmin=2**(3*levelmin)
