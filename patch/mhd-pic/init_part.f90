@@ -534,9 +534,7 @@ end subroutine init_ids
 
     ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that(?))
     ! Only job of this is to set idp
-    if (.not.read_ids)then
-       call init_ids(npic)
-    endif
+
 
     !----------------------------------------------------
     ! Reading initial conditions GRAFIC2 multigrid arrays
@@ -676,7 +674,9 @@ end subroutine init_ids
          allocate(init_plane_m(1:n1(ilevel),1:n2(ilevel)))
          allocate(init_array_m(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
        end if
-
+      if (.not.read_ids)then
+         call init_ids(npic)
+      endif
        if(myid==1)write(*,*)i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
        ! Loop over input variables
        do idim=1,ndim
