@@ -950,7 +950,7 @@ end subroutine init_ids
                             idu = ipic
                             typep(ipart)%family = FAM_DUST
                             typep(ipart)%tag = ipic
-                            if()
+           
                             ! Periodicity is handled later.
                             if(ndust>1 .and. ddex.eq.0.0d0)then
                               if(idim==1)then
