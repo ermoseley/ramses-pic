@@ -534,7 +534,20 @@ end subroutine init_ids
 
     ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that(?))
     ! Only job of this is to set idp
+    filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
+     INQUIRE(file=filename_id,exist=read_ids)
+     if(read_ids) then
+       if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
+       allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
+       allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
+       if (real_ids)then
+         allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
+       endif
+     end if
 
+     if(.not. read_ids)then
+      call init_ids(npic)
+     endif
 
     !----------------------------------------------------
     ! Reading initial conditions GRAFIC2 multigrid arrays
@@ -656,16 +669,16 @@ end subroutine init_ids
        allocate(init_plane(1:n1(ilevel),1:n2(ilevel)))
        allocate(init_plane_x(1:n1(ilevel),1:n2(ilevel)))
 
-       filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
-       INQUIRE(file=filename_id,exist=read_ids)
-       if(read_ids) then
-         if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
-         allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
-         allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
-         if (real_ids)then
-           allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
-         endif
-       end if
+      !  filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
+      !  INQUIRE(file=filename_id,exist=read_ids)
+      !  if(read_ids) then
+      !    if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
+      !    allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
+      !    allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
+      !    if (real_ids)then
+      !      allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
+      !    endif
+      !  end if
 
        filename_m=TRIM(initfile(ilevel))//'/ic_massc'
        INQUIRE(file=filename_m,exist=read_mass)
@@ -674,9 +687,7 @@ end subroutine init_ids
          allocate(init_plane_m(1:n1(ilevel),1:n2(ilevel)))
          allocate(init_array_m(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
        end if
-      if (.not.read_ids)then
-         call init_ids(npic)
-      endif
+      
        if(myid==1)write(*,*)i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
        ! Loop over input variables
        do idim=1,ndim
