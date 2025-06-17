@@ -19,10 +19,10 @@
   integer::i,j,k,igrid,ncache,ngrid,iskip,ipic
   integer::ind,ix,iy,iz,ilun,icpu
   integer:: idu, icr, itr
-  integer::i1,i2,i3
+  integer::i1,i2,i3, count ! count is temporary and will be removed.
   integer::i1_min=0,i1_max=0,i2_min=0,i2_max=0,i3_min=0,i3_max=0
   integer::buf_count,indglob, seed_base = 11011
-  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q, euler_e=2.718281828459045
+  real(dp)::dx,xx1,xx2,xx3,vv1,vv2,vv3,mm1,s,q,euler_e=2.718281828459045
   real(dp)::min_mdm_cpu,min_mdm_all
   real(dp),dimension(1:twotondim,1:3)::xc
   integer ,dimension(1:nvector)::ind_grid,ind_cell,ii
@@ -264,111 +264,220 @@
 
 contains
 
+subroutine init_ids(npic)
+   ! Include necessary modules and definitions.
+   ! use amr_commons
+   ! use pm_commons
+   ! use pm_parameters
+   ! use amr_parameters
+   ! use mpi_mod
+   ! use clfind_commons
+   ! implicit none
 
-subroutine init_ids
-   ! If you want to shuffle the IDs internally rather than
-   ! read shuffled IDs from a file, you'll end up using this routine. 
-   ! There may be some unnecessary stuff in here. We'll trim it down with time.
 
-   integer::nxny,nx_loc,trdim,ii
-   real(dp),dimension(1:3)::xbound
-   real(dp),dimension(1:3)::skip_loc,phi3a
-   real(dp)::scale
+   ! Declaration of variables
+   integer:: ii,npic
+   integer(i8b) :: shuffle_number, shuffle_shift,twotondimlevelmin
+   twotondimlevelmin=2**(3*levelmin)
 
-   ! Local constants
-   nxny=nx*ny
-   xbound(1:3)=(/dble(nx),dble(ny),dble(nz)/)
-   nx_loc=(icoarse_max-icoarse_min+1)
-   skip_loc=(/0.0d0,0.0d0,0.0d0/)
-   if(ndim>0)skip_loc(1)=dble(icoarse_min)
-   if(ndim>1)skip_loc(2)=dble(jcoarse_min)
-   if(ndim>2)skip_loc(3)=dble(kcoarse_min)
-   scale=boxlen/dble(nx_loc)
-
-   ntr = 0
-   if (pic.and.tracer) ntr = ntracer ! set in the tracer_params block of the namelist
-
-   npic=1
-   if (pic .and. (pic_dust .or. pic_cr .or. tracer)) npic = ndust + ncr + ntr
-
-   if(myid==1)write(*,*)'initializing IDs'
+   if (myid == 1) write(*,*) 'initializing IDs'
    ipart = 0
-      do ilevel=levelmin,nlevelmax
-   
-         if(initfile(ilevel)==' ')cycle
-   
-         !--------------------------------------------------------------
-         ! Compute npart
-         !--------------------------------------------------------------
-         ipart_old=ipart
-   
+   do ipic=1,npic
+
+      do ilevel = levelmin, nlevelmax
+         if (initfile(ilevel) == ' ') cycle
+
+         ipart_old = ipart
+
          ! Loop over grids by vector sweeps
-         ncache=active(ilevel)%ngrid
-         do igrid=1,ncache,nvector
-            ngrid=MIN(nvector,ncache-igrid+1)
-            do i=1,ngrid
-               ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+         ncache = active(ilevel)%ngrid
+         do igrid = 1, ncache, nvector
+            ngrid = min(nvector, ncache - igrid + 1)
+            do i = 1, ngrid
+               ind_grid(i) = active(ilevel)%igrid(igrid + i - 1)
             end do
-   
+
             ! Loop over cells
-            do ind=1,twotondim
-               iskip=ncoarse+(ind-1)*ngridmax
-               do i=1,ngrid
-                  ind_cell(i)=iskip+ind_grid(i)
+            do ind = 1, twotondim
+               iskip = ncoarse + (ind - 1) * ngridmax
+               do i = 1, ngrid
+                  ind_cell(i) = iskip + ind_grid(i)
                end do
-               do i=1,ngrid
-                  keep_part=son(ind_cell(i))==0
-                  if(keep_part)then
-                     ipart=ipart+1
-                     if(ipart>npartmax)then
-                        write(*,*)'Maximum number of particles incorrect'
-                        write(*,*)'npartmax should be greater than',ipart
+               do i = 1, ngrid
+                  keep_part = son(ind_cell(i)) == 0
+                  if (keep_part) then
+                     ipart = ipart + 1
+                     if (ipart > npartmax) then
+                        write(*,*) 'Maximum number of particles incorrect'
+                        write(*,*) 'npartmax should be greater than', ipart
                         call clean_stop
-                     endif
+                     end if
                   end if
                end do
             end do
-            ! End loop over cells
          end do
-         ! End loop over grids
       end do
-   npart = ipart 
+   end do
 
+   npart = ipart
    npart_cpu=0; npart_all=0
-   npart_cpu(myid)=npart
+   npart_cpu(myid) = npart
+
 #ifndef WITHOUTMPI
-#ifndef LONGINT
-   call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
-#else
-   call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
-#endif
+   call MPI_ALLREDUCE(npart_cpu, npart_all, ncpu, MPI_INTEGER8, MPI_SUM, MPI_COMM_WORLD, info)
    npart_cpu(1)=npart_all(1)
 #endif
-   do icpu=2,ncpu
-      npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
+
+   ! Update cumulative sum for processors
+   do icpu = 2, ncpu
+      npart_cpu(icpu) = npart_cpu(icpu - 1) + npart_all(icpu)
    end do
-   ! There will be npart*npic particles on each processor.
-   ! We want to make sure that things are cyclic here.
+
+   ! Shuffle the ids using a prime number
+   if (shuffled_ids) then
+      shuffle_number = 63641371_i8b
+      shuffle_shift = 1442695049_i8b
+   else
+      shuffle_number = 1_i8b
+      shuffle_shift = 0_i8b
+   endif
+
    ipart = 0
-   do ipic=1, npic 
-      do ii=1,npart
-         ipart=ipart+1
-         if(myid==1)then
-               idp(ipart) = ii + (ipic-1)*2**(3*levelmin)
-         else
-               idp(ipart) = ii + npart_cpu(myid-1) + (ipic-1)*2**(3*levelmin)
+   do ipic = 1, npic 
+      do ii = 1, npart
+         ipart = ipart + 1
+         idp(ipart) = ii
+         idp(ipart) = 1 + mod(shuffle_number * idp(ipart) + shuffle_shift, twotondimlevelmin)
+         idp(ipart) = idp(ipart) + (ipic - 1) * twotondimlevelmin
+         if (myid > 1) then
+            idp(ipart) = idp(ipart) + npart_cpu(myid - 1)
          end if
       end do
    end do
-
-   if (shuffled_ids)then ! WORKBLOCK, ISSUE HERE, FIGURE THIS OUT
-      do ipart=1,npart
-         idp(ipart) = 1 + mod(63641371*idp(ipart) + 1442695049,2**(3*levelmin)) + (ipic-1)*2**(3*levelmin)
-      end do
-      ! call fisher_yates_shuffle_fixed(npart, npart_cpu, myid, idp, seed_base)
-   endif 
-
 end subroutine init_ids
+
+! subroutine init_ids(npic,npart)
+!    ! If you want to shuffle the IDs internally rather than
+!    ! read shuffled IDs from a file, you'll end up using this routine. 
+!    ! There may be some unnecessary stuff in here. We'll trim it down with time.
+!    use amr_commons
+!    use pm_commons
+!    use pm_parameters
+!    use amr_parameters
+!    use mpi_mod
+!    use clfind_commons
+!    implicit none
+
+!    integer::nxny,nx_loc,trdim,ii
+!    real(dp),dimension(1:3)::xbound
+!    real(dp),dimension(1:3)::skip_loc,phi3a
+!    real(dp)::scale
+!    integer(i8b)::shuffle_number=1, shuffle_shift=0
+!    integer(i8b),dimension(1:ncpu)::npart_cpu,npart_all
+
+
+!    if(myid==1)write(*,*)'initializing IDs'
+!    !ipart = 0 ! npart should be computed first...
+!       do ilevel=levelmin,nlevelmax
+   
+!          if(initfile(ilevel)==' ')cycle
+   
+!          !--------------------------------------------------------------
+!          ! Compute npart
+!          !--------------------------------------------------------------
+!          ipart_old=ipart
+   
+!          ! Loop over grids by vector sweeps
+!          ncache=active(ilevel)%ngrid
+!          do igrid=1,ncache,nvector
+!             ngrid=MIN(nvector,ncache-igrid+1)
+!             do i=1,ngrid
+!                ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
+!             end do
+   
+!             ! Loop over cells
+!             do ind=1,twotondim
+!                iskip=ncoarse+(ind-1)*ngridmax
+!                do i=1,ngrid
+!                   ind_cell(i)=iskip+ind_grid(i)
+!                end do
+!                do i=1,ngrid
+!                   keep_part=son(ind_cell(i))==0
+!                   if(keep_part)then
+!                      ipart=ipart+1
+!                      if(ipart>npartmax)then
+!                         write(*,*)'Maximum number of particles incorrect'
+!                         write(*,*)'npartmax should be greater than',ipart
+!                         call clean_stop
+!                      endif
+!                   end if
+!                end do
+!             end do
+!             ! End loop over cells
+!          end do
+!          ! End loop over grids
+!       end do
+!    ! npart = ipart 
+
+!    npart_cpu=0; npart_all=0
+!    npart_cpu(myid)=npart
+! #ifndef WITHOUTMPI
+! #ifndef LONGINT
+!    call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+! #else
+!    call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
+! #endif
+!    npart_cpu(1)=npart_all(1)
+! #endif
+!    do icpu=2,ncpu
+!       npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
+!    end do
+!    ! There will be npart*npic particles on each processor.
+!    ! We want to make sure that things are cyclic here.
+!    if (shuffled_ids)then
+!       shuffle_number = 63641371
+!       shuffle_shift = 1442695049
+!    endif
+!    ipart = 0
+!    do ipic=1, npic 
+!       do ii=1,npart
+!          ipart=ipart+1
+!          idp(ipart) = ii + (ipic-1)*2**(3*levelmin)
+!          idp(ipart) = 1 + mod(shuffle_number*idp(ipart) + shuffle_shift,2**(3*levelmin))
+!          if (myid > 1)then
+!             idp(ipart) = idp(ipart) + npart_cpu(myid-1)
+!          endif
+!       end do
+!    end do
+!    !     ! Compute particle initial identity
+! !     if(.not.read_ids) then
+! !       npart_cpu=0; npart_all=0
+! !       npart_cpu(myid)=npart
+! ! #ifndef WITHOUTMPI
+! ! #ifndef LONGINT
+! !       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+! ! #else
+! !       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
+! ! #endif
+! !       npart_cpu(1)=npart_all(1)
+! ! #endif
+! !       do icpu=2,ncpu
+! !          npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
+! !       end do
+! !       do ipic=1, npic
+! !          if(myid==1)then
+! !             do ipart=1,npart
+! !                idp(ipart)=ipart
+! !             end do
+! !          else
+! !             do ipart=1,npart
+! !                idp(ipart)=npart_cpu(myid-1)+ipart + (ipic-1)*2**(3*levelmin)
+! !             end do
+! !          end if
+! !       end do
+! !     end if
+
+! end subroutine init_ids
 
   subroutine load_grafic
     ! Read data in the grafic format. The particle type is derived
@@ -380,11 +489,11 @@ end subroutine init_ids
     !    (file ic_posc* if present, if not generated through Zeldovich approximation)
     ! - Ids in int or long int
     !    (file ic_particle_ids if present, if not generated internally)
-
+    integer(i8b),dimension(1:ncpu)::npart_cpu,npart_all
     integer::nxny,nx_loc,trdim
     real(dp),dimension(1:3)::xbound
     real(dp),dimension(1:3)::skip_loc,phi3a
-    real(dp)::scale,cr_boost_lf,cr_boost_mag
+    real(dp)::scale,cr_boost_lf,cr_boost_mag,aa,em, norm ! a, m are temp variables used for astrodust.
 
     ! Local constants
     nxny=nx*ny
@@ -395,6 +504,7 @@ end subroutine init_ids
     if(ndim>1)skip_loc(2)=dble(jcoarse_min)
     if(ndim>2)skip_loc(3)=dble(kcoarse_min)
     scale=boxlen/dble(nx_loc)
+   if (astrodust) call HD23norm(norm) ! This is a normalization factor for the HD23 grain spectrum model.
 
     ntr = 0
     if (pic.and.tracer) ntr = ntracer ! set in the tracer_params block of the namelist
@@ -422,20 +532,33 @@ end subroutine init_ids
     if(myid==1.and.pic_cr)write(*,*)"reduced sp. o' light = ",crsol
     if(myid==1.and.pic_cr)write(*,*)"reduced sp. o' light(cgs) = ",crsol*units_length/units_time
 
-    ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that.)
+    ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that(?))
+    ! Only job of this is to set idp
+    filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
+     INQUIRE(file=filename_id,exist=read_ids)
+     if(read_ids) then
+       if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
+       allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
+       allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
+       if (real_ids)then
+         allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
+       endif
+     end if
 
-    call init_ids
+     if(.not. read_ids)then
+      call init_ids(npic)
+     endif
 
     !----------------------------------------------------
     ! Reading initial conditions GRAFIC2 multigrid arrays
     !----------------------------------------------------
     ipart=0
     ! Loop over initial condition levels
-    do ipic=1,npic !ndust should ideally be consistent with how the ICs were generated
+    
     ! Being consistent means there are factors of ndust in varous exponents and
     ! the denominator of the grain mass.
     do ilevel=levelmin,nlevelmax
-
+      do ipic=1,npic !ndust should ideally be consistent with how the ICs were generated
        if(initfile(ilevel)==' ')cycle
 
        ! Mesh size at level ilevel in coarse cell units
@@ -546,16 +669,16 @@ end subroutine init_ids
        allocate(init_plane(1:n1(ilevel),1:n2(ilevel)))
        allocate(init_plane_x(1:n1(ilevel),1:n2(ilevel)))
 
-       filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
-       INQUIRE(file=filename_id,exist=read_ids)
-       if(read_ids) then
-         if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
-         allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
-         allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
-         if (real_ids)then
-           allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
-         endif
-       end if
+      !  filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
+      !  INQUIRE(file=filename_id,exist=read_ids)
+      !  if(read_ids) then
+      !    if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
+      !    allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
+      !    allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
+      !    if (real_ids)then
+      !      allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
+      !    endif
+      !  end if
 
        filename_m=TRIM(initfile(ilevel))//'/ic_massc'
        INQUIRE(file=filename_m,exist=read_mass)
@@ -564,7 +687,7 @@ end subroutine init_ids
          allocate(init_plane_m(1:n1(ilevel),1:n2(ilevel)))
          allocate(init_array_m(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
        end if
-
+      
        if(myid==1)write(*,*)i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
        ! Loop over input variables
        do idim=1,ndim
@@ -813,12 +936,15 @@ end subroutine init_ids
                       keep_part=son(ind_cell(i))==0 
                       if(keep_part)then
                          ipart=ipart+1
-                         ! Assign cosmic ray 4-velocities. Not yet done..
+                         ! Assign cosmic ray 4-velocities. Not yet done!
                          if (ipic .gt. ndust .and. ipic .le. ndust+ncr)then
                            vp(ipart,idim)=init_array(i1,i2,i3)
                          else
                            vp(ipart,idim)=init_array(i1,i2,i3)
                          endif
+                        !  if (stationary_particles) then
+                        !     vp(ipart,idim)=0.0d0 ! Stationary particles have zero velocity.
+                        !  end if
                          if(.not. read_pos)then
                             dispmax=max(dispmax,abs(init_array(i1,i2,i3)/dx))
                          else
@@ -835,6 +961,7 @@ end subroutine init_ids
                             idu = ipic
                             typep(ipart)%family = FAM_DUST
                             typep(ipart)%tag = ipic
+           
                             ! Periodicity is handled later.
                             if(ndust>1 .and. ddex.eq.0.0d0)then
                               if(idim==1)then
@@ -845,6 +972,7 @@ end subroutine init_ids
                                 xp(ipart,idim)=xp(ipart,idim)+tdz(ipic)*dx*scale
                               endif
                             endif
+
                           elseif (ipic .gt. ndust .and. ipic .le. ndust+ncr) then
                             icr = ipic-ndust
                             typep(ipart)%family= FAM_CR
@@ -902,44 +1030,66 @@ end subroutine init_ids
                             typep(ipart)%tag = 0
                           endif
                           ! assign masses
-                          if (ddex.ne.0.0d0 .and. ipic .le. ndust .and. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust2.or.astrodust4))then
+                          if (ddex.ne.0.0d0 .and. ipic .le. ndust .and. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust))then
                             mp(ipart)=1.151292546497023*dust_to_gas*ddex*&
                             &(0.5d0**(3*levelmin))*1.0d1**&
                             &(0.5*ddex*(idp(ipart)-1.0d0)/&
                             &(ndust*2.0d0**(3*levelmin)-1.0d0))/&
                             &(ndust*(1.0d1**(0.5*ddex)-1.0d0)) ! gives grains an MRN spectrum
-                          elseif((ddex .eq. 0.0d0 .and.(.not. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust2.or.astrodust4))).and. ipic .le. ndust)then
+                          elseif((ddex .eq. 0.0d0 .and.(.not. mrn_spectrum .and. .not. lognormal .and. .not. (astrodust))).and. ipic .le. ndust)then
                             mp(ipart) = 0.5d0**(3*ilevel) * dust_to_gas/ndust
 
-                            elseif(astrodust .and. ipic .le. ndust)then
+                            elseif(ddex.ne.0.0d0 .and. astrodust .and. ipic .le. ndust)then
                               ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
                               ! q will go from -1 to 1. q = Log[a_grain/peak]
                               ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
                               
-                              q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
-                          
-                              mp(ipart)=dust_to_gas*& ! Next factor is dLoga
-                                 &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
-                            elseif(astrodust2 .and. ipic .le. ndust)then
-                              ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
-                              ! q will go from -1 to 1. q = Log[a_grain/peak]
-                              ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
+                              q = ddex*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0) ! -ddex/2 to +ddex/2
+                              aa = 1.0d1**(q) ! rescaled grain size where a = 1 is the peak
+                              call normalizedHD23(em,aa,norm) ! Hensley & Draine (2023) grain size distribution
+                              ! Centered at 0.23 micron, then a factor of 10^(ddex/2) to either side.
+                              mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
+                              if ((myid==1) .and. (ipart==1))then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"idp, em, q, aa: "
+                                 write(*,*) idp(ipart),em,q,aa
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              endif
+                              if ((myid==1) .and. (abs(q).ge. ddex*0.5d0) .and. (count == 0))then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"q is out of bounds! idp, q:"
+                                 write(*,*) idp(ipart),q
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 count = 1
+                              endif
                               
-                              q = 1.38629d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
+                              if ((myid==1) .and. (idp(ipart)> 2.0d0**(3*levelmin)) .and. (count == 0))then
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 write(*,*)"ID is bigger than resolution!"
+                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                                 count = 1
+                              endif
+                              ! µ*distribution*dLoga
+                           !  elseif(astrodust2 .and. ipic .le. ndust)then
+                           !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
+                           !    ! q will go from -1 to 1. q = Log[a_grain/peak]
+                           !    ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
+                              
+                           !    q = 1.38629d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
                           
-                              mp(ipart)=dust_to_gas*1.33712152128185*& ! Next factor is dLoga
-                                 &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
+                           !    mp(ipart)=dust_to_gas*1.33712152128185*& ! Next factor is dLoga
+                           !       &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
 
-                            elseif(astrodust4 .and. ipic .le. ndust)then
-                              ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
-                              ! q will go from -1 to 1. q = Log[a_grain/peak]
-                              ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
-                              if(myid==1)write(*,*) 'astrodust4'
-                              q = 2.77259d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
-                              if(myid==1)write(*,*) 'astrodust4 qs computed'
-                              mp(ipart)=dust_to_gas*2.223987055683838*& ! Next factor is dLoga
-                                 &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
-                              if(myid==1)write(*,*) 'astrodust4 mps computed'
+                           !  elseif(astrodust4 .and. ipic .le. ndust)then
+                           !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
+                           !    ! q will go from -1 to 1. q = Log[a_grain/peak]
+                           !    ! 4*log(2) is the prefactor here, so we span a factor of 4 to either side.
+                           !    if(myid==1)write(*,*) 'astrodust4'
+                           !    q = 2.77259d0*((idp(ipart)-1.0d0)/(ndust*2.0d0**(3*levelmin)-1.0d0)-0.5d0)
+                           !    if(myid==1)write(*,*) 'astrodust4 qs computed'
+                           !    mp(ipart)=dust_to_gas*2.223987055683838*& ! Next factor is dLoga
+                           !       &(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*euler_e**(-2.07*q**2-0.6*q**3-0.0569*q**4 - 0.00168*q**5)
+                           !    if(myid==1)write(*,*) 'astrodust4 mps computed'
                            elseif(ddex.ne.0.0d0 .and. lognormal .and. ipic .le. ndust)then
                            ! ddex/4 = standard deviation in log10-space
                            ! This goes from -2*std to +2*std
@@ -1698,7 +1848,8 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
    deallocate(state)
  end subroutine
 
- subroutine HD23norm(norm)
+
+subroutine HD23norm(norm)
    !This subroutine approximates the HD23 grain size distribution (astrodust)
    ! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
    ! The normalization is not analytic, so we have developed a fit that will approximately 
@@ -1788,6 +1939,7 @@ subroutine normalizedHD23(m,agr,norm)
    end function integrand
 
 end subroutine normalizedHD23
+
 !  subroutine random_seed_fixed(seed)
 !    implicit none
 !    integer, dimension(1:8), intent(in) :: seed
