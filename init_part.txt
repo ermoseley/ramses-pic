@@ -266,13 +266,13 @@ contains
 
 subroutine init_ids(npic)
    ! Include necessary modules and definitions.
-   ! use amr_commons
-   ! use pm_commons
-   ! use pm_parameters
-   ! use amr_parameters
-   ! use mpi_mod
-   ! use clfind_commons
-   ! implicit none
+   use amr_commons
+   use pm_commons
+   use pm_parameters
+   use amr_parameters
+   use mpi_mod
+   use clfind_commons
+   implicit none
 
 
    ! Declaration of variables
@@ -489,7 +489,7 @@ end subroutine init_ids
     !    (file ic_posc* if present, if not generated through Zeldovich approximation)
     ! - Ids in int or long int
     !    (file ic_particle_ids if present, if not generated internally)
-    integer(i8b),dimension(1:ncpu)::npart_cpu,npart_all
+
     integer::nxny,nx_loc,trdim
     real(dp),dimension(1:3)::xbound
     real(dp),dimension(1:3)::skip_loc,phi3a
