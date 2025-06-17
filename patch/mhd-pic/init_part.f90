@@ -554,11 +554,11 @@ end subroutine init_ids
     !----------------------------------------------------
     ipart=0
     ! Loop over initial condition levels
-    do ipic=1,npic !ndust should ideally be consistent with how the ICs were generated
+    
     ! Being consistent means there are factors of ndust in varous exponents and
     ! the denominator of the grain mass.
     do ilevel=levelmin,nlevelmax
-
+      do ipic=1,npic !ndust should ideally be consistent with how the ICs were generated
        if(initfile(ilevel)==' ')cycle
 
        ! Mesh size at level ilevel in coarse cell units
