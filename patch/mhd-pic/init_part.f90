@@ -266,18 +266,19 @@ contains
 
 subroutine init_ids(npic)
    ! Include necessary modules and definitions.
-   ! use amr_commons
-   ! use pm_commons
-   ! use pm_parameters
-   ! use amr_parameters
-   ! use mpi_mod
-   ! use clfind_commons
-   ! implicit none
+   use amr_commons
+   use pm_commons
+   use pm_parameters
+   use amr_parameters
+   use mpi_mod
+   use clfind_commons
+   implicit none
 
 
    ! Declaration of variables
-   integer:: ii
-   integer(i8b) :: shuffle_number, shuffle_shift,twotondimlevelmin=2**(3*levelmin)
+   integer:: ii,npic
+   integer(i8b) :: shuffle_number, shuffle_shift,twotondimlevelmin
+   twotondimlevelmin=2**(3*levelmin)
 
    if (myid == 1) write(*,*) 'initializing IDs'
    ipart = 0
