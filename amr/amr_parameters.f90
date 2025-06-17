@@ -206,7 +206,8 @@ module amr_parameters
   real(dp):: gyrofactor=0.1         ! Timesteps per Larmor time of the smallest grains.                                       
   logical :: real_ids=.false.         ! Should set to true for ids that are initially real numbers.   
   logical :: shuffled_ids=.false.    ! Shuffles the particle IDs so that you have uniformly distributed grain properties in space.                        
-  integer:: grain_sampling_rate=1 ! For use with size_bins. Makes a grid in charge-drag space when greater than 1. Must divide ndust evenly.                                                                                                               
+  integer:: grain_sampling_rate=1 ! For use with size_bins. Makes a grid in charge-drag space when greater than 1. Must divide ndust evenly.
+  logical::stationary_particles=.false. ! If true, particles are initialized with zero velocity, otherwise from e.g. an ic file.                                                                                                               
   logical :: lognormal = .false.   ! Creates a log-normal grain distribution from +2*sigma to -2*sigma centered at grain_size with sigma=ddex/4                                                                                                            
   logical :: astrodust = .false. ! Creates an astrodust distribution (Hensley & Draine '23) that extends from peak*10**(-ddex/2) to peak*10**(+ddex/2 (peak (grain_size) = 0.23 microns)                                                                                       
   logical :: guiding_center=.false. ! If true, uses guiding center approximation for grains. Currently no momentum-feedback                                                                             

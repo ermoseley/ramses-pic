@@ -264,221 +264,129 @@
 
 contains
 
-subroutine init_ids(npic)
-   implicit none
-   ! Include necessary modules and definitions.
+
+subroutine init_ids(npic,npart)
+   ! If you want to shuffle the IDs internally rather than
+   ! read shuffled IDs from a file, you'll end up using this routine. 
+   ! There may be some unnecessary stuff in here. We'll trim it down with time.
    use amr_commons
    use pm_commons
    use pm_parameters
    use amr_parameters
    use mpi_mod
    use clfind_commons
+   implicit none
 
-   ! Declaration of variables
-   integer(i8b) :: ii, twotondimlevelmin=2**(3*levelmin)
-   integer(i8b) :: shuffle_number, shuffle_shift
-   real(dp), dimension(1:3) :: xbound, skip_loc
-   real(dp) :: scale
+   integer::nxny,nx_loc,trdim,ii
+   real(dp),dimension(1:3)::xbound
+   real(dp),dimension(1:3)::skip_loc,phi3a
+   real(dp)::scale
+   integer(i8b)::shuffle_number=1, shuffle_shift=0
+   integer(i8b),dimension(1:ncpu)::npart_cpu,npart_all
 
 
-   if (myid == 1) write(*,*) 'initializing IDs'
-   ipart = 0
-   do ipic=1,npic
-
-      do ilevel = levelmin, nlevelmax
-         if (initfile(ilevel) == ' ') cycle
-
-         ipart_old = ipart
-
+   if(myid==1)write(*,*)'initializing IDs'
+   !ipart = 0 ! npart should be computed first...
+      do ilevel=levelmin,nlevelmax
+   
+         if(initfile(ilevel)==' ')cycle
+   
+         !--------------------------------------------------------------
+         ! Compute npart
+         !--------------------------------------------------------------
+         ipart_old=ipart
+   
          ! Loop over grids by vector sweeps
-         ncache = active(ilevel)%ngrid
-         do igrid = 1, ncache, nvector
-            ngrid = min(nvector, ncache - igrid + 1)
-            do i = 1, ngrid
-               ind_grid(i) = active(ilevel)%igrid(igrid + i - 1)
+         ncache=active(ilevel)%ngrid
+         do igrid=1,ncache,nvector
+            ngrid=MIN(nvector,ncache-igrid+1)
+            do i=1,ngrid
+               ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
             end do
-
+   
             ! Loop over cells
-            do ind = 1, twotondim
-               iskip = ncoarse + (ind - 1) * ngridmax
-               do i = 1, ngrid
-                  ind_cell(i) = iskip + ind_grid(i)
+            do ind=1,twotondim
+               iskip=ncoarse+(ind-1)*ngridmax
+               do i=1,ngrid
+                  ind_cell(i)=iskip+ind_grid(i)
                end do
-               do i = 1, ngrid
-                  keep_part = son(ind_cell(i)) == 0
-                  if (keep_part) then
-                     ipart = ipart + 1
-                     if (ipart > npartmax) then
-                        write(*,*) 'Maximum number of particles incorrect'
-                        write(*,*) 'npartmax should be greater than', ipart
+               do i=1,ngrid
+                  keep_part=son(ind_cell(i))==0
+                  if(keep_part)then
+                     ipart=ipart+1
+                     if(ipart>npartmax)then
+                        write(*,*)'Maximum number of particles incorrect'
+                        write(*,*)'npartmax should be greater than',ipart
                         call clean_stop
-                     end if
+                     endif
                   end if
                end do
             end do
+            ! End loop over cells
          end do
+         ! End loop over grids
       end do
-   end do
+   ! npart = ipart 
 
-   npart = ipart
    npart_cpu=0; npart_all=0
-   npart_cpu(myid) = npart
-
+   npart_cpu(myid)=npart
 #ifndef WITHOUTMPI
-   call MPI_ALLREDUCE(npart_cpu, npart_all, ncpu, MPI_INTEGER8, MPI_SUM, MPI_COMM_WORLD, info)
+#ifndef LONGINT
+   call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+#else
+   call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
+#endif
    npart_cpu(1)=npart_all(1)
 #endif
-
-   ! Update cumulative sum for processors
-   do icpu = 2, ncpu
-      npart_cpu(icpu) = npart_cpu(icpu - 1) + npart_all(icpu)
+   do icpu=2,ncpu
+      npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
    end do
-
-   ! Shuffle the ids using a prime number
-   if (shuffled_ids) then
-      shuffle_number = 63641371_i8b
-      shuffle_shift = 1442695049_i8b
-   else
-      shuffle_number = 1_i8b
-      shuffle_shift = 0_i8b
+   ! There will be npart*npic particles on each processor.
+   ! We want to make sure that things are cyclic here.
+   if (shuffled_ids)then
+      shuffle_number = 63641371
+      shuffle_shift = 1442695049
    endif
-
    ipart = 0
-   do ipic = 1, npic 
-      do ii = 1, npart
-         ipart = ipart + 1
-         idp(ipart) = ii
-         idp(ipart) = 1 + mod(shuffle_number * idp(ipart) + shuffle_shift, twotondimlevelmin)
-         idp(ipart) = idp(ipart) + (ipic - 1) * twotondimlevelmin
-         if (myid > 1) then
-            idp(ipart) = idp(ipart) + npart_cpu(myid - 1)
-         end if
+   do ipic=1, npic 
+      do ii=1,npart
+         ipart=ipart+1
+         idp(ipart) = ii + (ipic-1)*2**(3*levelmin)
+         idp(ipart) = 1 + mod(shuffle_number*idp(ipart) + shuffle_shift,2**(3*levelmin))
+         if (myid > 1)then
+            idp(ipart) = idp(ipart) + npart_cpu(myid-1)
+         endif
       end do
    end do
-end subroutine init_ids
-
-! subroutine init_ids(npic,npart)
-!    ! If you want to shuffle the IDs internally rather than
-!    ! read shuffled IDs from a file, you'll end up using this routine. 
-!    ! There may be some unnecessary stuff in here. We'll trim it down with time.
-!    use amr_commons
-!    use pm_commons
-!    use pm_parameters
-!    use amr_parameters
-!    use mpi_mod
-!    use clfind_commons
-!    implicit none
-
-!    integer::nxny,nx_loc,trdim,ii
-!    real(dp),dimension(1:3)::xbound
-!    real(dp),dimension(1:3)::skip_loc,phi3a
-!    real(dp)::scale
-!    integer(i8b)::shuffle_number=1, shuffle_shift=0
-!    integer(i8b),dimension(1:ncpu)::npart_cpu,npart_all
-
-
-!    if(myid==1)write(*,*)'initializing IDs'
-!    !ipart = 0 ! npart should be computed first...
-!       do ilevel=levelmin,nlevelmax
-   
-!          if(initfile(ilevel)==' ')cycle
-   
-!          !--------------------------------------------------------------
-!          ! Compute npart
-!          !--------------------------------------------------------------
-!          ipart_old=ipart
-   
-!          ! Loop over grids by vector sweeps
-!          ncache=active(ilevel)%ngrid
-!          do igrid=1,ncache,nvector
-!             ngrid=MIN(nvector,ncache-igrid+1)
-!             do i=1,ngrid
-!                ind_grid(i)=active(ilevel)%igrid(igrid+i-1)
-!             end do
-   
-!             ! Loop over cells
-!             do ind=1,twotondim
-!                iskip=ncoarse+(ind-1)*ngridmax
-!                do i=1,ngrid
-!                   ind_cell(i)=iskip+ind_grid(i)
-!                end do
-!                do i=1,ngrid
-!                   keep_part=son(ind_cell(i))==0
-!                   if(keep_part)then
-!                      ipart=ipart+1
-!                      if(ipart>npartmax)then
-!                         write(*,*)'Maximum number of particles incorrect'
-!                         write(*,*)'npartmax should be greater than',ipart
-!                         call clean_stop
-!                      endif
-!                   end if
-!                end do
-!             end do
-!             ! End loop over cells
-!          end do
-!          ! End loop over grids
-!       end do
-!    ! npart = ipart 
-
-!    npart_cpu=0; npart_all=0
-!    npart_cpu(myid)=npart
+   !     ! Compute particle initial identity
+!     if(.not.read_ids) then
+!       npart_cpu=0; npart_all=0
+!       npart_cpu(myid)=npart
 ! #ifndef WITHOUTMPI
 ! #ifndef LONGINT
-!    call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
+!       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
 ! #else
-!    call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
+!       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
 ! #endif
-!    npart_cpu(1)=npart_all(1)
+!       npart_cpu(1)=npart_all(1)
 ! #endif
-!    do icpu=2,ncpu
-!       npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
-!    end do
-!    ! There will be npart*npic particles on each processor.
-!    ! We want to make sure that things are cyclic here.
-!    if (shuffled_ids)then
-!       shuffle_number = 63641371
-!       shuffle_shift = 1442695049
-!    endif
-!    ipart = 0
-!    do ipic=1, npic 
-!       do ii=1,npart
-!          ipart=ipart+1
-!          idp(ipart) = ii + (ipic-1)*2**(3*levelmin)
-!          idp(ipart) = 1 + mod(shuffle_number*idp(ipart) + shuffle_shift,2**(3*levelmin))
-!          if (myid > 1)then
-!             idp(ipart) = idp(ipart) + npart_cpu(myid-1)
-!          endif
+!       do icpu=2,ncpu
+!          npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
 !       end do
-!    end do
-!    !     ! Compute particle initial identity
-! !     if(.not.read_ids) then
-! !       npart_cpu=0; npart_all=0
-! !       npart_cpu(myid)=npart
-! ! #ifndef WITHOUTMPI
-! ! #ifndef LONGINT
-! !       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,info)
-! ! #else
-! !       call MPI_ALLREDUCE(npart_cpu,npart_all,ncpu,MPI_INTEGER8,MPI_SUM,MPI_COMM_WORLD,info)
-! ! #endif
-! !       npart_cpu(1)=npart_all(1)
-! ! #endif
-! !       do icpu=2,ncpu
-! !          npart_cpu(icpu)=npart_cpu(icpu-1)+npart_all(icpu)
-! !       end do
-! !       do ipic=1, npic
-! !          if(myid==1)then
-! !             do ipart=1,npart
-! !                idp(ipart)=ipart
-! !             end do
-! !          else
-! !             do ipart=1,npart
-! !                idp(ipart)=npart_cpu(myid-1)+ipart + (ipic-1)*2**(3*levelmin)
-! !             end do
-! !          end if
-! !       end do
-! !     end if
+!       do ipic=1, npic
+!          if(myid==1)then
+!             do ipart=1,npart
+!                idp(ipart)=ipart
+!             end do
+!          else
+!             do ipart=1,npart
+!                idp(ipart)=npart_cpu(myid-1)+ipart + (ipic-1)*2**(3*levelmin)
+!             end do
+!          end if
+!       end do
+!     end if
 
-! end subroutine init_ids
+end subroutine init_ids
 
   subroutine load_grafic
     ! Read data in the grafic format. The particle type is derived
@@ -535,9 +443,7 @@ end subroutine init_ids
 
     ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that(?))
     ! Only job of this is to set idp
-    if (.not.read_ids)then
-       call init_ids(npic)
-    endif
+    call init_ids(npic,npart)
 
     !----------------------------------------------------
     ! Reading initial conditions GRAFIC2 multigrid arrays
@@ -926,15 +832,12 @@ end subroutine init_ids
                       keep_part=son(ind_cell(i))==0 
                       if(keep_part)then
                          ipart=ipart+1
-                         ! Assign cosmic ray 4-velocities. Not yet done!
+                         ! Assign cosmic ray 4-velocities. Not yet done..
                          if (ipic .gt. ndust .and. ipic .le. ndust+ncr)then
                            vp(ipart,idim)=init_array(i1,i2,i3)
                          else
                            vp(ipart,idim)=init_array(i1,i2,i3)
                          endif
-                         if (stationary_particles) then
-                            vp(ipart,idim)=0.0d0 ! Stationary particles have zero velocity.
-                         end if
                          if(.not. read_pos)then
                             dispmax=max(dispmax,abs(init_array(i1,i2,i3)/dx))
                          else
@@ -951,7 +854,6 @@ end subroutine init_ids
                             idu = ipic
                             typep(ipart)%family = FAM_DUST
                             typep(ipart)%tag = ipic
-                            if()
                             ! Periodicity is handled later.
                             if(ndust>1 .and. ddex.eq.0.0d0)then
                               if(idim==1)then
@@ -962,7 +864,6 @@ end subroutine init_ids
                                 xp(ipart,idim)=xp(ipart,idim)+tdz(ipic)*dx*scale
                               endif
                             endif
-
                           elseif (ipic .gt. ndust .and. ipic .le. ndust+ncr) then
                             icr = ipic-ndust
                             typep(ipart)%family= FAM_CR
