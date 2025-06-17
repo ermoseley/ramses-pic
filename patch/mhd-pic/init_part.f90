@@ -1698,32 +1698,96 @@ subroutine fisher_yates_shuffle_fixed(np, np_cpu, proc_id, ids, seed_b)
    deallocate(state)
  end subroutine
 
- subroutine HD23(ddex,qs)
-! This subroutine approximates the HD23 grain size distribution (astrodust)
-! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
-! The normalization is not analytic, so we have developed a fit that will approximately 
-! normalize the distribution. 
-real(dp)::euler_e=2.718281828459045
-real(dp),dimension(1:np),intent(out)::qs
-real(dp),intent(in)::ddex
-   (0.0013669699558849478*(0.041384400713017494 + 
-   -      (-1 + 10**(ddex/2.))**0.7363399037812469)*
-   -    euler_e**(-0.807*Log(2266.01*a)**2 + 0.157*Log(2266.01*a)**3 + 
-   -       0.00796*Log(2266.01*a)**4 - 0.00168*Log(2266.01*a)**5))/
-   -  ((-1 + 10**(ddex/2.))**0.7363399037812469*a**0.3999999999999999*
-   -    (1.0973003648362687 - 35.7901792801748*ddex**2 + 532.8851241262813*ddex**3 - 
-   -      4020.259433253929*ddex**4 + 19315.123125118076*ddex**5 - 
-   -      64258.08633884704*ddex**6 + 154057.10091248745*ddex**7 - 
-   -      271097.786822826*ddex**8 + 350730.5310628749*ddex**9 - 
-   -      327147.8274984879*ddex**10 + 206389.52823714467*ddex**11 - 
-   -      69577.95259703783*ddex**12 - 8452.721330530461*ddex**13 + 
-   -      21303.620388645693*ddex**14 - 7819.949419503629*ddex**15 - 
-   -      1848.598053082152*ddex**16 + 3034.3708277145115*ddex**17 - 
-   -      1416.1158288772997*ddex**18 + 358.67512005565743*ddex**19 - 
-   -      49.850941792208275*ddex**20 + 3.0021197715391623*ddex**21)*
-   -    (1 - euler_e**(-1.840442662476168*(-1 + 10**(ddex/2.))**0.9760619713098426)))
+ subroutine HD23norm(norm)
+   !This subroutine approximates the HD23 grain size distribution (astrodust)
+   ! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
+   ! The normalization is not analytic, so we have developed a fit that will approximately 
+   ! normalize the distribution. 
+   ! a is the grain size, ddex is the width of the distribution we are covering,
+   ! m is the mass of the particle, later to be rescaled by a few prefactors.
+   ! This function is valid for ddex between 0.1 and 2. Outside this range, 
+   ! the normalization will be quite wrong.
+   
+   use amr_commons
+   use pm_commons
+   use pm_parameters
+   use clfind_commons
+   use mpi_mod
+   implicit none
 
-end subroutine HD23
+   real(dp), intent(out) :: norm
+   real(dp) :: euler_e, a_start, a_end, step_size, a
+   real(dp) :: f0, f1, f2
+   integer :: i, nsteps
+
+   euler_e = 2.718281828459045d0
+   nsteps = 10000
+   if (mod(nsteps, 2) /= 0) nsteps = nsteps + 1  ! Ensure nsteps is even
+   a_start = 10.0d0 ** (-ddex / 2.0d0)
+   a_end = 10.0d0 ** (ddex / 2.0d0)
+   step_size = (a_end - a_start) / dble(nsteps)
+
+   norm = 0.0d0
+   a = a_start
+
+   ! First point
+   f0 = integrand(a, euler_e)
+
+   do i = 1, nsteps / 2
+       f1 = integrand(a + step_size, euler_e)         ! Midpoint
+       f2 = integrand(a + 2.0d0 * step_size, euler_e)  ! Next endpoint
+       norm = norm + (step_size / 3.0d0) * (f0 + 4.0d0 * f1 + f2)  ! Simpson's Rule
+       f0 = f2
+       a = a + 2.0d0 * step_size
+   end do
+
+   contains
+
+   function integrand(ag, euler_e) result(f)
+      implicit none
+      real(dp), intent(in) :: ag, euler_e
+      real(dp) :: f
+      f = (euler_e ** &
+          (-0.807d0 * log(2266.01d0 * ag)**2 + 0.157d0 * log(2266.01d0 * ag)**3 + &
+           0.00796d0 * log(2266.01d0 * ag)**4 - 0.00168d0 * log(2266.01d0 * ag)**5)) / ag**1.4d0
+   end function integrand
+
+end subroutine HD23norm
+
+subroutine normalizedHD23(m,agr,norm)
+   !This subroutine approximates the HD23 grain size distribution (astrodust)
+   ! The HD23 distribution is a quasi-log-normal distribution with a peak at 0.23 microns.
+   ! The normalization is not analytic, so we have developed a fit that will approximately 
+   ! normalize the distribution. 
+   ! a is the grain size, ddex is the width of the distribution we are covering,
+   ! m is the mass of the particle, later to be rescaled by a few prefactors.
+   
+   use amr_commons
+   use pm_commons
+   use pm_parameters
+   use clfind_commons
+   use mpi_mod
+   implicit none
+
+   real(dp), intent(out) :: m
+   real(dp), intent(out) :: norm
+   real(dp),intent(in)::agr
+   real(dp) :: euler_e=2.718281828459045d0
+
+   m = integrand(agr, euler_e) / norm  ! Peak value normalized
+   
+   contains
+
+   function integrand(ag, euler_e) result(f)
+      implicit none
+      real(dp), intent(in) :: ag, euler_e
+      real(dp) :: f
+      f = (euler_e ** &
+          (-0.807d0 * log(2266.01d0 * ag)**2 + 0.157d0 * log(2266.01d0 * ag)**3 + &
+           0.00796d0 * log(2266.01d0 * ag)**4 - 0.00168d0 * log(2266.01d0 * ag)**5)) / ag**1.4d0
+   end function integrand
+
+end subroutine normalizedHD23
 !  subroutine random_seed_fixed(seed)
 !    implicit none
 !    integer, dimension(1:8), intent(in) :: seed
