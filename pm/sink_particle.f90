@@ -957,7 +957,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
            ! Accrete mass, momentum and gas total energy
            unew(indp(j,ind),1)=unew(indp(j,ind),1)-m_acc/vol_loc
            unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)-m_acc*vv(1:ndim)/vol_loc
-           unew(indp(j,ind),ndim+2)=unew(indp(j,ind),ndim+2)-m_acc*e/vol_loc
+           unew(indp(j,ind),neul)=unew(indp(j,ind),neul)-m_acc*e/vol_loc
            ! Note that we do not accrete magnetic fields and non-thermal energies.
 
            ! Accrete passive scalars
@@ -972,7 +972,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
               if(agn)then
                  if(ok_blast_agn(isink).and.delta_mass(isink)>0.0)then
                     if(AGN_fbk_frac_ener.gt.0.0)then ! thermal AGN feedback
-                       unew(indp(j,ind),ndim+2)=unew(indp(j,ind),ndim+2)+fbk_ener_AGN/vol_loc
+                       unew(indp(j,ind),neul)=unew(indp(j,ind),neul)+fbk_ener_AGN/vol_loc
                     end if
 
                     if(AGN_fbk_frac_mom.gt.0.0)then ! momentum AGN feedback
@@ -982,7 +982,7 @@ subroutine accrete_sink(ind_grid,ind_part,ind_grid_part,ng,np,ilevel,on_creation
                        orth_dist=sqrt(sum((r_rel(1:ndim)-cone_dist*cone_dir(1:ndim))**2))
                        if (orth_dist.le.abs(cone_dist)*tan_theta)then
                           unew(indp(j,ind),2:ndim+1)=unew(indp(j,ind),2:ndim+1)+fbk_mom_AGN*r_rel(1:ndim)/(r_len)/vol_loc
-                          unew(indp(j,ind),ndim+2)=unew(indp(j,ind),ndim+2)+sum(fbk_mom_AGN*r_rel(1:ndim)/(r_len)*vv(1:ndim))/vol_loc
+                          unew(indp(j,ind),neul)=unew(indp(j,ind),neul)+sum(fbk_mom_AGN*r_rel(1:ndim)/(r_len)*vv(1:ndim))/vol_loc
                        end if
                     end if
                  end if
@@ -1098,7 +1098,7 @@ subroutine compute_accretion_rate(write_sinks)
 
      ! Compute final sink accretion rate
      if(bondi_accretion)dMsink_overdt(isink)=dMBHoverdt(isink)
-     if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),dMEDoverdt(isink))
+     if(eddington_limit)dMsink_overdt(isink)=min(dMBHoverdt(isink),eddington_cap*dMEDoverdt(isink))
 
      if(smbh.and.mass_smbh_seed>0.0)then
         r2_smbh=(factG*msmbh(isink)/v_bondi**2)**2
@@ -2019,8 +2019,8 @@ subroutine update_cloud(ilevel)
   ig=0
   ip=0
   ! Loop over grids
-  igrid=headl(myid,ilevel)
-  do jgrid=1,numbl(myid,ilevel)
+  do jgrid=1,active(ilevel)%ngrid
+     igrid=active(ilevel)%igrid(jgrid)
      npart1=numbp(igrid)  ! Number of particles in the grid
      if(npart1>0)then
         ig=ig+1
@@ -2046,7 +2046,6 @@ subroutine update_cloud(ilevel)
         end do
         ! End loop over particles
      end if
-     igrid=next(igrid)   ! Go to next grid
   end do
   ! End loop over grids
   if(ip>0)call upd_cloud(ind_part,ip)
@@ -2501,7 +2500,7 @@ subroutine read_sink_params()
   namelist/sink_params/n_sink,rho_sink,d_sink,accretion_scheme,merging_timescale,&
        ir_cloud_massive,sink_soft,mass_sink_direct_force,ir_cloud,nsinkmax,create_sinks,&
        check_energies,mass_sink_seed,mass_smbh_seed,c_acc,nlevelmax_sink,&
-       eddington_limit,acc_sink_boost,mass_merger_vel_check,&
+       eddington_limit,eddington_cap,acc_sink_boost,mass_merger_vel_check,&
        clump_core,verbose_AGN,T2_AGN,T2_min,cone_opening,mass_halo_AGN,mass_clump_AGN,mass_star_AGN,&
        AGN_fbk_frac_ener,AGN_fbk_frac_mom,T2_max,v_max,boost_threshold_density,&
        epsilon_kin,AGN_fbk_mode_switch_threshold,kin_mass_loading,bondi_use_vrel,smbh,agn,max_mass_nsc,&
@@ -2630,7 +2629,6 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
   ! Grid-based arrays
   integer ,dimension(1:nvector)::ind_cell
   integer ,dimension(1:nvector,1:threetondim),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim),save::nbors_father_grids
   ! Particle-based arrays
   real(dp),dimension(1:nvector,1:ndim),save::x,dd,dg
   integer ,dimension(1:nvector,1:ndim),save::ig,id,igg,igd,icg,icd
@@ -2671,7 +2669,7 @@ subroutine cic_get_cells(indp,xx,vol,ok,ind_grid,xpart,ind_grid_part,ng,np,ileve
   end do
 
   ! Gather neighboring father cells (should be present anytime!)
-  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ng,ilevel)
+  call get3cubefather(ind_cell,nbors_father_cells,ng,ilevel)
 
   ! Rescale particle position at level ilevel
   do idim=1,ndim
@@ -2811,7 +2809,7 @@ subroutine cic_get_vals(fluid_var,ind_grid,xpart,ind_grid_part,ng,np,ilevel,ilev
   use amr_commons
   use pm_commons
   use poisson_commons
-  use hydro_commons, ONLY: nvar,uold
+  use hydro_commons, ONLY: nvar,nvar_all,uold
   implicit none
 
   !----------------------------------------------------------------------------
@@ -2822,11 +2820,7 @@ subroutine cic_get_vals(fluid_var,ind_grid,xpart,ind_grid_part,ng,np,ilevel,ilev
   logical::ilevel_only
 
   integer ,dimension(1:nvector)::ind_grid,ind_grid_part
-#ifdef SOLVERmhd
-  real(dp) ,dimension(1:nvector,1:nvar+3)::fluid_var
-#else
-  real(dp) ,dimension(1:nvector,1:nvar)::fluid_var
-#endif
+  real(dp) ,dimension(1:nvector,1:nvar_all)::fluid_var
   real(dp) ,dimension(1:nvector,1:ndim)::xpart
 
   ! Particle-based arrays
@@ -2897,11 +2891,7 @@ subroutine set_unew_sink(ilevel)
   ! Set unew to uold for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
         do i=1,active(ilevel)%ngrid
            unew(active(ilevel)%igrid(i)+iskip,ivar) = uold(active(ilevel)%igrid(i)+iskip,ivar)
         end do
@@ -2912,11 +2902,7 @@ subroutine set_unew_sink(ilevel)
   do icpu=1,ncpu
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         do i=1,reception(icpu,ilevel)%ngrid
 #ifdef LIGHT_MPI_COMM
            unew(reception(icpu,ilevel)%pcomm%igrid(i)+iskip,ivar)=0
@@ -2951,26 +2937,14 @@ subroutine set_uold_sink(ilevel)
   if(verbose)write(*,111)ilevel
 
   ! Reverse update boundaries
-#ifdef SOLVERmhd
-  do ivar=1,nvar+3
-#else
-  do ivar=1,nvar
-#endif
+  do ivar=1,nvar_all
      call make_virtual_reverse_dp(unew(1,ivar),ilevel)
-#ifdef SOLVERmhd
   end do
-#else
-  end do
-#endif
 
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         do i=1,active(ilevel)%ngrid
            uold(active(ilevel)%igrid(i)+iskip,ivar) = unew(active(ilevel)%igrid(i)+iskip,ivar)
         end do

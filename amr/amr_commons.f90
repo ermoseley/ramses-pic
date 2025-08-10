@@ -24,11 +24,11 @@ module amr_commons
   real(dp)::t=0.0D0                             ! Time variable
 
   ! executable identification
-  CHARACTER(LEN=80)::builddate,patchdir
-  CHARACTER(LEN=80)::gitrepo,gitbranch,githash
+  CHARACTER(LEN=300)::builddate,buildcommand,patchdir
+  CHARACTER(LEN=300)::gitrepo,gitbranch,githash
 
   ! Save namelist filename
-  CHARACTER(LEN=80)::namelist_file
+  CHARACTER(LEN=300)::namelist_file
 
   ! MPI variables
   integer::ncpu,ndomain,myid,overload=1
@@ -70,7 +70,7 @@ module amr_commons
   integer ,allocatable,dimension(:)  ::father  ! father cell
   integer ,allocatable,dimension(:)  ::next    ! next grid in list
   integer ,allocatable,dimension(:)  ::prev    ! previous grid in list
-  integer ,allocatable,dimension(:)  ::son     ! sons grids
+  integer ,allocatable,dimension(:)  ::son     ! sons grid
   integer ,allocatable,dimension(:)  ::flag1   ! flag for refine
   integer ,allocatable,dimension(:)  ::flag2   ! flag for expansion
 
@@ -178,12 +178,6 @@ module amr_commons
   type(communicator),allocatable,dimension(:,:)::emission    ! 2D (ncpu,nlevelmax) data emission "heavy" buffer
   type(communicator),allocatable,dimension(:,:)::reception   ! 2D (ncpu, nlevelmax) data reception "heavy" buffer
 #endif
-
-
-  ! Types for physical boundary conditions
-  CHARACTER(LEN=20)::type_hydro  ='hydro'
-  CHARACTER(LEN=20)::type_accel  ='accel'
-  CHARACTER(LEN=20)::type_flag   ='flag'
 
   ! Units specified by the user in the UNITS_PARAMS namelist for non-cosmo runs.
   ! These values shouldn't be used directly. Instead call units() in amr/units.f90.
