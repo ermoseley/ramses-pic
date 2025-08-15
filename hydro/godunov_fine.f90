@@ -78,10 +78,10 @@ subroutine set_unew(ilevel)
            if(ndim>0)u=uold(active(ilevel)%igrid(i)+iskip,2)/d
            if(ndim>1)v=uold(active(ilevel)%igrid(i)+iskip,3)/d
            if(ndim>2)w=uold(active(ilevel)%igrid(i)+iskip,4)/d
-           e=uold(active(ilevel)%igrid(i)+iskip,ndim+2)-0.5d0*d*(u**2+v**2+w**2)
+           e=uold(active(ilevel)%igrid(i)+iskip,neul)-0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
            do irad=1,nener
-              e=e-uold(active(ilevel)%igrid(i)+iskip,ndim+2+irad)
+              e=e-uold(active(ilevel)%igrid(i)+iskip,nhydro+irad)
            end do
 #endif
            enew(active(ilevel)%igrid(i)+iskip)=e
@@ -156,33 +156,22 @@ subroutine set_uold(ilevel)
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel*scale
 
-  ! Add gravity source terms to unew
-  if(poisson)then
-     call add_gravity_source_terms(ilevel)
-  end if
-
-  ! Add non conservative pdV terms to unew
-  ! for thermal and/or non-thermal energies
-  if(pressure_fix.OR.nener>0)then
-     call add_pdv_source_terms(ilevel)
-  endif
-
   ! Set uold to unew for myid cells
   do ind=1,twotondim
      iskip=ncoarse+(ind-1)*ngridmax
 
      ! -------------------------------------------------------------------------------------------------------------------------------------------------------------
      ! L. Romano 13.06.2023 -- Catch advection errors due to smallr
-#if NVAR > NDIM + 2 + NENER
+#if NVAR > NHYDRO+NENER
      do i=1,active(ilevel)%ngrid
         if(uold(active(ilevel)%igrid(i)+iskip,1).lt.smallr.and.unew(active(ilevel)%igrid(i)+iskip,1).gt.uold(active(ilevel)%igrid(i)+iskip,1))then
            ! inflow into previously floored cell: fix concentrations
-           do ivar = ndim+nener+3, nvar
+           do ivar = nhydro+1+nener, nvar
               unew(active(ilevel)%igrid(i)+iskip,ivar) = uold(active(ilevel)%igrid(i)+iskip,ivar) * max(unew(active(ilevel)%igrid(i)+iskip, 1), smallr) / smallr
            end do
         else if(unew(active(ilevel)%igrid(i)+iskip,1).lt.smallr.and.uold(active(ilevel)%igrid(i)+iskip,1).gt.unew(active(ilevel)%igrid(i)+iskip,1))then
            ! outflow leading to density below floor: apply density floor to scalar density
-           do ivar = ndim+nener+3, nvar
+           do ivar = nhydro+1+nener, nvar
               unew(active(ilevel)%igrid(i)+iskip,ivar) = uold(active(ilevel)%igrid(i)+iskip,ivar) * smallr / max(uold(active(ilevel)%igrid(i)+iskip, 1), smallr)
            end do
         end if
@@ -212,16 +201,16 @@ subroutine set_uold(ilevel)
            e_kin=0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
            do irad=1,nener
-              e_kin=e_kin+uold(ind_cell,ndim+2+irad)
+              e_kin=e_kin+uold(ind_cell,nhydro+irad)
            end do
 #endif
-           e_cons=uold(ind_cell,ndim+2)-e_kin
+           e_cons=uold(ind_cell,neul)-e_kin
            e_prim=enew(ind_cell)
            ! Note: here divu=-div.u*dt
            div=abs(divu(ind_cell))*dx/dtnew(ilevel)
            e_trunc=beta_fix*d*max(div,3.0d0*hexp*dx)**2
            if(e_cons<e_trunc)then
-              uold(ind_cell,ndim+2)=e_prim+e_kin
+              uold(ind_cell,neul)=e_prim+e_kin
            end if
         end do
      end if
@@ -263,7 +252,7 @@ subroutine add_gravity_source_terms(ilevel)
         if(ndim>1)v=unew(ind_cell,3)/d
         if(ndim>2)w=unew(ind_cell,4)/d
         e_kin=0.5d0*d*(u**2+v**2+w**2)
-        e_prim=unew(ind_cell,ndim+2)-e_kin
+        e_prim=unew(ind_cell,neul)-e_kin
         d_old=max(uold(ind_cell,1),smallr)
         if(strict_equilibrium>0)req=rho_eq(ind_cell)
         fact=(d_old-req)/d*0.5d0*dtnew(ilevel)
@@ -280,7 +269,7 @@ subroutine add_gravity_source_terms(ilevel)
            unew(ind_cell,4)=d*w
         endif
         e_kin=0.5d0*d*(u**2+v**2+w**2)
-        unew(ind_cell,ndim+2)=e_prim+e_kin
+        unew(ind_cell,neul)=e_prim+e_kin
      end do
   end do
 
@@ -294,6 +283,7 @@ end subroutine add_gravity_source_terms
 subroutine add_pdv_source_terms(ilevel)
   use amr_commons
   use hydro_commons
+  use amr_constants, only:iii,jjj
   implicit none
   integer::ilevel
   !---------------------------------------------------------
@@ -302,7 +292,6 @@ subroutine add_pdv_source_terms(ilevel)
   !---------------------------------------------------------
   integer::i,ind,iskip,nx_loc,ind_cell1
   integer::ncache,igrid,ngrid,idim,id1,ig1,ih1,id2,ig2,ih2
-  integer,dimension(1:3,1:2,1:8)::iii,jjj
   real(dp)::scale,dx,dx_loc,d,u,v,w,eold
 
   integer ,dimension(1:nvector),save::ind_grid,ind_cell
@@ -322,13 +311,6 @@ subroutine add_pdv_source_terms(ilevel)
   scale=boxlen/dble(nx_loc)
   dx=0.5d0**ilevel
   dx_loc=dx*scale
-
-  iii(1,1,1:8)=(/1,0,1,0,1,0,1,0/); jjj(1,1,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(1,2,1:8)=(/0,2,0,2,0,2,0,2/); jjj(1,2,1:8)=(/2,1,4,3,6,5,8,7/)
-  iii(2,1,1:8)=(/3,3,0,0,3,3,0,0/); jjj(2,1,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(2,2,1:8)=(/0,0,4,4,0,0,4,4/); jjj(2,2,1:8)=(/3,4,1,2,7,8,5,6/)
-  iii(3,1,1:8)=(/5,5,5,5,0,0,0,0/); jjj(3,1,1:8)=(/5,6,7,8,1,2,3,4/)
-  iii(3,2,1:8)=(/0,0,0,0,6,6,6,6/); jjj(3,2,1:8)=(/5,6,7,8,1,2,3,4/)
 
   ! Loop over myid grids by vector sweeps
   ncache=active(ilevel)%ngrid
@@ -407,10 +389,10 @@ subroutine add_pdv_source_terms(ilevel)
               if(ndim>0)u=uold(ind_cell(i),2)/d
               if(ndim>1)v=uold(ind_cell(i),3)/d
               if(ndim>2)w=uold(ind_cell(i),4)/d
-              eold=uold(ind_cell(i),ndim+2)-0.5d0*d*(u**2+v**2+w**2)
+              eold=uold(ind_cell(i),neul)-0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
               do irad=1,nener
-                 eold=eold-uold(ind_cell(i),ndim+2+irad)
+                 eold=eold-uold(ind_cell(i),nhydro+irad)
               end do
 #endif
               ! Add -pdV term
@@ -423,8 +405,8 @@ subroutine add_pdv_source_terms(ilevel)
         do irad=1,nener
            do i=1,ngrid
               ! Add -pdV term
-              unew(ind_cell(i),ndim+2+irad)=unew(ind_cell(i),ndim+2+irad) &
-                & -(gamma_rad(irad)-1.0d0)*uold(ind_cell(i),ndim+2+irad)*divu_loc(i)*dtnew(ilevel)
+              unew(ind_cell(i),nhydro+irad)=unew(ind_cell(i),nhydro+irad) &
+                & -(gamma_rad(irad)-1.0d0)*uold(ind_cell(i),nhydro+irad)*divu_loc(i)*dtnew(ilevel)
            end do
         end do
 #endif
@@ -450,10 +432,10 @@ subroutine add_pdv_source_terms(ilevel)
            if(ndim>0)u=uold(ind_cell1,2)/d
            if(ndim>1)v=uold(ind_cell1,3)/d
            if(ndim>2)w=uold(ind_cell1,4)/d
-           eold=uold(ind_cell1,ndim+2)-0.5d0*d*(u**2+v**2+w**2)
+           eold=uold(ind_cell1,neul)-0.5d0*d*(u**2+v**2+w**2)
 #if NENER>0
            do irad=1,nener
-              eold=eold-uold(ind_cell1,ndim+2+irad)
+              eold=eold-uold(ind_cell1,nhydro+irad)
            end do
 #endif
            ! Add pdV term
@@ -469,8 +451,8 @@ subroutine add_pdv_source_terms(ilevel)
         iskip=ncoarse+(ind-1)*ngridmax
         do i=1,active(ilevel)%ngrid
            ind_cell1=active(ilevel)%igrid(i)+iskip
-           unew(ind_cell1,ndim+2+irad)=unew(ind_cell1,ndim+2+irad) &
-                & +(gamma_rad(irad)-1.0d0)*uold(ind_cell1,ndim+2+irad)*divu(ind_cell1) ! Note: here divu=-div.u*dt
+           unew(ind_cell1,nhydro+irad)=unew(ind_cell1,nhydro+irad) &
+                & +(gamma_rad(irad)-1.0d0)*uold(ind_cell1,nhydro+irad)*divu(ind_cell1) ! Note: here divu=-div.u*dt
         end do
      end do
   end do
@@ -501,7 +483,6 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   ! coarser level if necessary.
   !-------------------------------------------------------------------
   integer ,dimension(1:nvector,1:threetondim     ),save::nbors_father_cells
-  integer ,dimension(1:nvector,1:twotondim       ),save::nbors_father_grids
   integer ,dimension(1:nvector,0:twondim         ),save::ibuffer_father
   real(dp),dimension(1:nvector,0:twondim  ,1:nvar),save::u1
   real(dp),dimension(1:nvector,1:twotondim,1:nvar),save::u2
@@ -553,7 +534,7 @@ subroutine godfine1(ind_grid,ncache,ilevel)
   do i=1,ncache
      ind_cell(i)=father(ind_grid(i))
   end do
-  call get3cubefather(ind_cell,nbors_father_cells,nbors_father_grids,ncache,ilevel)
+  call get3cubefather(ind_cell,nbors_father_cells,ncache,ilevel)
 
   !---------------------------
   ! Gather 6x6x6 cells stencil

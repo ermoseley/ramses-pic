@@ -96,11 +96,12 @@ subroutine dump_all
      ! Copy compilation details to output directory
      filename=TRIM(filedir)//'compilation.txt'
      OPEN(UNIT=11, FILE=filename, FORM='formatted')
-     write(11,'(" compile date = ",A)')TRIM(builddate)
-     write(11,'(" patch dir    = ",A)')TRIM(patchdir)
-     write(11,'(" remote repo  = ",A)')TRIM(gitrepo)
-     write(11,'(" local branch = ",A)')TRIM(gitbranch)
-     write(11,'(" last commit  = ",A)')TRIM(githash)
+     write(11,'(" compile date    = ",A)')TRIM(builddate)
+     write(11,'(" compile command = ",A)')TRIM(buildcommand)
+     write(11,'(" patch dir       = ",A)')TRIM(patchdir)
+     write(11,'(" remote repo     = ",A)')TRIM(gitrepo)
+     write(11,'(" local branch    = ",A)')TRIM(gitbranch)
+     write(11,'(" last commit     = ",A)')TRIM(githash)
      CLOSE(11)
   endif
 #ifndef WITHOUTMPI
@@ -546,12 +547,12 @@ subroutine output_header(filename)
 #endif
 
   if (myid == 1) then
-     write(ilun, '(a1,a12,a10)') '#', 'Family', 'Count'
+     write(ilun, '(a1,a12,a15)') '#', 'Family', 'Count'
      do ifam = -NFAMILIES, NFAMILIES
-        write(ilun, '(a13, i10)') &
+        write(ilun, '(a13, i15)') &
              trim(particle_family_keys(ifam)), npart_family(ifam)
      end do
-     write(ilun, '(a13, i10)') &
+     write(ilun, '(a13, i15)') &
           'undefined', npart_all - sum(npart_family)
   end if
 
