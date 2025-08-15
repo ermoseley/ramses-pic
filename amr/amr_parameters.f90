@@ -31,8 +31,8 @@ module amr_parameters
   !integer,parameter::i8b=4  ! default long int are 4-byte int
   integer,parameter::i8b=selected_int_kind(9) ! since log(2*10^9)/log(2)=30.9
 #else
-  integer, parameter :: i8b=selected_int_kind(18) ! since log(2*10^18)/log(2)=60.8
-  !integer,parameter::i8b=8  ! long int are 8-byte int
+  !integer, parameter :: i8b=selected_int_kind(18) ! since log(2*10^18)/log(2)=60.8
+  integer,parameter::i8b=8  ! long int are 8-byte int
 #endif /* LONGINT */
 
   ! Number of dimensions
