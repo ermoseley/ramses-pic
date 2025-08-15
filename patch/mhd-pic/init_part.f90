@@ -33,11 +33,11 @@
   integer(i8b),allocatable,dimension(:)::isp8
   integer(1),allocatable,dimension(:)::ii1
   real(kind=4),allocatable,dimension(:,:)::init_plane,init_plane_x,init_plane_m
-  integer(i8b),allocatable,dimension(:,:)::init_plane_id
+  integer(kind=8),allocatable,dimension(:,:)::init_plane_id ! Trying different kind.
   real(dp),allocatable,dimension(:,:,:)::init_array,init_array_x,init_array_m
   real(dp),dimension(1:ntracer):: tdx,tdy,tdz
   real(dp),dimension(1:ncr):: crdirx,crdiry,crdirz,cdx,cdy,cdz
-  integer(i8b),allocatable,dimension(:,:,:)::init_array_id
+  integer(kind=8),allocatable,dimension(:,:,:)::init_array_id
   real(kind=8),dimension(1:nvector,1:3)::xx,vv
   real(kind=8),dimension(1:nvector)::mm
   type(part_t)::tmppart
