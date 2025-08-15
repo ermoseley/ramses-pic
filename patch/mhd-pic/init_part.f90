@@ -33,7 +33,6 @@
   integer(i8b),allocatable,dimension(:)::isp8
   integer(1),allocatable,dimension(:)::ii1
   real(kind=4),allocatable,dimension(:,:)::init_plane,init_plane_x,init_plane_m
-  real(kind=4),allocatable,dimension(:,:)::init_plane_rid ! real id to be converted to int
   integer(i8b),allocatable,dimension(:,:)::init_plane_id
   real(dp),allocatable,dimension(:,:,:)::init_array,init_array_x,init_array_m
   real(dp),dimension(1:ntracer):: tdx,tdy,tdz
@@ -532,22 +531,7 @@ end subroutine init_ids
     if(myid==1.and.pic_cr)write(*,*)"reduced sp. o' light = ",crsol
     if(myid==1.and.pic_cr)write(*,*)"reduced sp. o' light(cgs) = ",crsol*units_length/units_time
 
-    ! Precompute IDs (Shuffled, though not with the fisher-yates shuffle just yet. Need to figure out more about how to do that(?))
-    ! Only job of this is to set idp
-    filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
-     INQUIRE(file=filename_id,exist=read_ids)
-     if(read_ids) then
-       if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
-       allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
-       allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
-       if (real_ids)then
-         allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
-       endif
-     end if
 
-     if(.not. read_ids)then
-      call init_ids(npic)
-     endif
 
     !----------------------------------------------------
     ! Reading initial conditions GRAFIC2 multigrid arrays
@@ -649,9 +633,21 @@ end subroutine init_ids
           write(*,*)myid,i1_min,i1_max,i2_min,i2_max,i3_min,i3_max
        endif
 
-
-       ! First and a half step: compute particle IDs for use in computing other things later on.
-       ! Yes, that means you'll have to 
+    ! Precompute IDs loaded from a file.
+       filename_id=TRIM(initfile(ilevel))//'/ic_particle_ids'
+       INQUIRE(file=filename_id,exist=read_ids)
+       if(read_ids) then
+         if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
+         allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
+         allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
+       end if
+  
+       if(.not. read_ids)then
+         ! since we haven't finished init_ids, we need to exit with an error.
+         write(*,*)'Error: grafic ICs without particle ids are not supported yet.'
+         call clean_stop
+        !call init_ids(npic) ! This is the alternative block for generating IDs. It isn't done yet.
+       endif
 
 
 
@@ -675,9 +671,6 @@ end subroutine init_ids
       !    if(myid==1)write(*,*)'Reading particle ids from file '//TRIM(filename_id)
       !    allocate(init_plane_id(1:n1(ilevel),1:n2(ilevel)))
       !    allocate(init_array_id(i1_min:i1_max,i2_min:i2_max,i3_min:i3_max))
-      !    if (real_ids)then
-      !      allocate(init_plane_rid(1:n1(ilevel),1:n2(ilevel)))
-      !    endif
       !  end if
 
        filename_m=TRIM(initfile(ilevel))//'/ic_massc'
@@ -807,8 +800,7 @@ end subroutine init_ids
                 if(myid==1)close(10)
              end if
 
-             ! added the real_ids keyword for reading real-valued ids written with Tine's scripts
-             if(read_ids .and. .not. real_ids) then
+             if(read_ids) then
                 if(myid==1)then
                    open(10,file=filename_id,form='unformatted')
                    rewind 10
@@ -833,36 +825,6 @@ end subroutine init_ids
                       if(i3.ge.i3_min.and.i3.le.i3_max)then
                          init_array_id(i1_min:i1_max,i2_min:i2_max,i3) = &
                               & init_plane_id(i1_min:i1_max,i2_min:i2_max)
-                      end if
-                   endif
-                end do
-                if(myid==1)close(10)
-              ! Here we begin the alternative process of reading real-valued IDs
-              elseif (read_ids .and. real_ids) then
-                if(myid==1)then
-                   open(10,file=filename_id,form='unformatted')
-                   rewind 10
-                   read(10) ! skip first line
-                end if
-                do i3=1,n3(ilevel)
-                   if(myid==1)then
-                      if(debug.and.mod(i3,10)==0)write(*,*)'Reading plane ',i3
-                      read(10)((init_plane_rid(i1,i2),i1=1,n1(ilevel)),i2=1,n2(ilevel))
-                   else
-                      init_plane_rid=0.0d0
-                   endif
-                   buf_count=n1(ilevel)*n2(ilevel)
-#ifndef WITHOUTMPI
-#ifndef LONGINT
-                   call MPI_BCAST(init_plane_rid,buf_count,MPI_INTEGER,0,MPI_COMM_WORLD,info)
-#else
-                   call MPI_BCAST(init_plane_rid,buf_count,MPI_INTEGER8,0,MPI_COMM_WORLD,info)
-#endif
-#endif
-                   if(active(ilevel)%ngrid>0)then
-                      if(i3.ge.i3_min.and.i3.le.i3_max)then
-                         init_array_id(i1_min:i1_max,i2_min:i2_max,i3) = &
-                              & int(init_plane_rid(i1_min:i1_max,i2_min:i2_max))
                       end if
                    endif
                 end do
@@ -1049,26 +1011,26 @@ end subroutine init_ids
                               call normalizedHD23(em,aa,norm) ! Hensley & Draine (2023) grain size distribution
                               ! Centered at 0.23 micron, then a factor of 10^(ddex/2) to either side.
                               mp(ipart)=dust_to_gas*(1/(ndust*2.0d0**(3*levelmin)-1.0d0))*em
-                              if ((myid==1) .and. (ipart==1))then
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 write(*,*)"idp, em, q, aa: "
-                                 write(*,*) idp(ipart),em,q,aa
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                              endif
-                              if ((myid==1) .and. (abs(q).ge. ddex*0.5d0) .and. (count == 0))then
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 write(*,*)"q is out of bounds! idp, q:"
-                                 write(*,*) idp(ipart),q
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 count = 1
-                              endif
+                              ! if ((myid==1) .and. (ipart==1))then
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              !    write(*,*)"idp, em, q, aa: "
+                              !    write(*,*) idp(ipart),em,q,aa
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              ! endif
+                              ! if ((myid==1) .and. (abs(q).ge. ddex*0.5d0) .and. (count == 0))then
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              !    write(*,*)"q is out of bounds! idp, q:"
+                              !    write(*,*) idp(ipart),q
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              !    count = 1
+                              ! endif
                               
-                              if ((myid==1) .and. (idp(ipart)> 2.0d0**(3*levelmin)) .and. (count == 0))then
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 write(*,*)"ID is bigger than resolution!"
-                                 write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-                                 count = 1
-                              endif
+                              ! if ((myid==1) .and. (idp(ipart)> npic*2.0d0**(3*levelmin)) .and. (count == 0))then
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              !    write(*,*)"ID is bigger than resolution!"
+                              !    write(*,*)"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                              !    count = 1
+                              ! endif
                               ! µ*distribution*dLoga
                            !  elseif(astrodust2 .and. ipic .le. ndust)then
                            !    ! goes from 0.5*peak to 2*peak. Peak is grain_size (dimensionless).
@@ -1137,9 +1099,6 @@ end subroutine init_ids
        if(read_ids) then
          deallocate(init_plane_id)
          deallocate(init_array_id)
-         if(real_ids)then
-           deallocate(init_plane_rid)
-         endif
        end if
 
        if(read_mass) then
