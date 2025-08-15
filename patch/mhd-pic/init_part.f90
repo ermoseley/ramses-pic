@@ -915,8 +915,8 @@ end subroutine init_ids
                           endif ! moved this endif from previously being below the if(read_mass).
                           if (read_ids) then
                             idp(ipart) = init_array_id(i1,i2,i3) + (ipic-1)*2**(3*levelmin)
-                            if ((myid==1).and. idp(ipart)==0)  then
-                              write(*,*) 'found a particle with idp=0'
+                            if ((myid==1).and. idp(ipart)>0)  then
+                              write(*,*) 'found a particle with idp=', idp(ipart)
                               call clean_stop
                             endif
                           endif
