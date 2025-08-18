@@ -807,85 +807,85 @@ end subroutine init_ids
             !  integer :: n1h, n2h, n3h
             !  real(4) :: dx, x1, x2, x3, f1, f2, f3, f4
 !!!!!!!!!!!!!!!!!!!! New code for reading ids.
-               if (read_ids) then
-                  if (myid==1) then
-                     open(10, file=filename_id, form='unformatted', status='old')
-                     ! Option A: skip header blindly (matches your current code):
-                     read(10)
-                     ! Option B: read and sanity-check header:
-                     !read(10) n1h, n2h, n3h, dx, x1, x2, x3, f1, f2, f3, f4
-                     ! if (n1h /= n1(ilevel) .or. n2h /= n2(ilevel) .or. n3h /= n3(ilevel)) then
-                     !    write(*,*) 'ID header/grid mismatch: ', n1h, n2h, n3h, ' vs ', n1(ilevel), n2(ilevel), n3(ilevel)
-                     !    call clean_stop
-                     ! end if
-                  end if
+!                if (read_ids) then
+!                   if (myid==1) then
+!                      open(10, file=filename_id, form='unformatted', status='old')
+!                      ! Option A: skip header blindly (matches your current code):
+!                      read(10)
+!                      ! Option B: read and sanity-check header:
+!                      !read(10) n1h, n2h, n3h, dx, x1, x2, x3, f1, f2, f3, f4
+!                      ! if (n1h /= n1(ilevel) .or. n2h /= n2(ilevel) .or. n3h /= n3(ilevel)) then
+!                      !    write(*,*) 'ID header/grid mismatch: ', n1h, n2h, n3h, ' vs ', n1(ilevel), n2(ilevel), n3(ilevel)
+!                      !    call clean_stop
+!                      ! end if
+!                   end if
 
-                  buf_count = n1(ilevel)*n2(ilevel)
+!                   buf_count = n1(ilevel)*n2(ilevel)
 
-                  do i3 = 1, n3(ilevel)
-                  if (myid==1) then
-                     read(10) ((init_plane_id(i1,i2), i1=1,n1(ilevel)), i2=1,n2(ilevel))
-                  else
-                     init_plane_id = 0
-                  end if
+!                   do i3 = 1, n3(ilevel)
+!                   if (myid==1) then
+!                      read(10) ((init_plane_id(i1,i2), i1=1,n1(ilevel)), i2=1,n2(ilevel))
+!                   else
+!                      init_plane_id = 0
+!                   end if
 
-#ifndef WITHOUTMPI
-#ifndef LONGINT
-                  call MPI_BCAST(init_plane_id, buf_count, MPI_INTEGER, 0, MPI_COMM_WORLD, info)
-#else
-                  call MPI_BCAST(init_plane_id, buf_count, MPI_INTEGER8, 0, MPI_COMM_WORLD, info)
-#endif
-#endif
-
-                  if (active(ilevel)%ngrid > 0) then
-                     if (i3 >= i3_min .and. i3 <= i3_max) then
-                        init_array_id(i1_min:i1_max, i2_min:i2_max, i3) = &
-                        init_plane_id(i1_min:i1_max, i2_min:i2_max)
-                     end if
-                  end if
-                  end do
-
-                  if (myid==1) close(10)
-               else
-                  continue
-               endif
-!!!!!!!!!!!!!!!!!!!! End of new code for reading ids.
-!!!!!!!!!!!!!!!!!!!! Old code for reading ids.
-!              if(read_ids) then
-!                 if(myid==1)then
-!                    open(10,file=filename_id,form='unformatted')
-!                    rewind 10
-!                    read(10) ! skip first line
-!                 end if
-!                 do i3=1,n3(ilevel)
-!                    if(myid==1)then
-!                       if(debug.and.mod(i3,10)==0)write(*,*)'Reading plane ',i3
-!                       read(10)((init_plane_id(i1,i2),i1=1,n1(ilevel)),i2=1,n2(ilevel))
-!                    else
-!                       init_plane_id=0
-!                    endif
-!                    buf_count=n1(ilevel)*n2(ilevel)
 ! #ifndef WITHOUTMPI
 ! #ifndef LONGINT
-!                    call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER,0,MPI_COMM_WORLD,info)
+!                   call MPI_BCAST(init_plane_id, buf_count, MPI_INTEGER, 0, MPI_COMM_WORLD, info)
 ! #else
-!                    if (myid==1) then 
-!                      write(*,*) 'LONGINT is defined'
-!                    endif
-!                    call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER8,0,MPI_COMM_WORLD,info)
+!                   call MPI_BCAST(init_plane_id, buf_count, MPI_INTEGER8, 0, MPI_COMM_WORLD, info)
 ! #endif
 ! #endif
-!                    if(active(ilevel)%ngrid>0)then
-!                       if(i3.ge.i3_min.and.i3.le.i3_max)then
-!                          init_array_id(i1_min:i1_max,i2_min:i2_max,i3) = &
-!                               & init_plane_id(i1_min:i1_max,i2_min:i2_max)
-!                       end if
-!                    endif
-!                 end do
-!                 if(myid==1)close(10)
-!               else
-!                 continue ! end of the alternative block
-!               endif
+
+!                   if (active(ilevel)%ngrid > 0) then
+!                      if (i3 >= i3_min .and. i3 <= i3_max) then
+!                         init_array_id(i1_min:i1_max, i2_min:i2_max, i3) = &
+!                         init_plane_id(i1_min:i1_max, i2_min:i2_max)
+!                      end if
+!                   end if
+!                   end do
+
+!                   if (myid==1) close(10)
+!                else
+!                   continue
+!                endif
+!!!!!!!!!!!!!!!!!!!! End of new code for reading ids.
+!!!!!!!!!!!!!!!!!!!! Old code for reading ids.
+             if(read_ids) then
+                if(myid==1)then
+                   open(10,file=filename_id,form='unformatted')
+                   rewind 10
+                   read(10) ! skip first line
+                end if
+                do i3=1,n3(ilevel)
+                   if(myid==1)then
+                      if(debug.and.mod(i3,10)==0)write(*,*)'Reading plane ',i3
+                      read(10)((init_plane_id(i1,i2),i1=1,n1(ilevel)),i2=1,n2(ilevel))
+                   else
+                      init_plane_id=0
+                   endif
+                   buf_count=n1(ilevel)*n2(ilevel)
+#ifndef WITHOUTMPI
+#ifndef LONGINT
+                   call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER,0,MPI_COMM_WORLD,info)
+#else
+                   if (myid==1) then 
+                     write(*,*) 'LONGINT is defined'
+                   endif
+                   call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER8,0,MPI_COMM_WORLD,info)
+#endif
+#endif
+                   if(active(ilevel)%ngrid>0)then
+                      if(i3.ge.i3_min.and.i3.le.i3_max)then
+                         init_array_id(i1_min:i1_max,i2_min:i2_max,i3) = &
+                              & init_plane_id(i1_min:i1_max,i2_min:i2_max)
+                      end if
+                   endif
+                end do
+                if(myid==1)close(10)
+              else
+                continue ! end of the alternative block
+              endif
 !!!!!!!!!!!!!!!!!!!! End of old code for reading ids.
               if(read_mass) then
                if(myid==1)then
