@@ -26,18 +26,15 @@ subroutine read_hydro_params(nml_ok)
        & ,d_region,u_region,v_region,w_region,p_region &
 #ifdef SOLVERmhd
        & ,A_region,B_region,C_region,B_ave &
-#if NVAR>8+NENER
-       & ,var_region &
 #endif
-#else
-#if NVAR>NDIM+2+NENER
+#if NVAR>NHYDRO+NENER
        & ,var_region &
-#endif
 #endif
 #if NENER>0
        & ,prad_region &
 #endif
-       & ,omega_b
+       & ,omega_b,alpha_dense_core,beta_dense_core,crit_dense_core,delta_rho
+
 
   ! Hydro parameters
   namelist/hydro_params/gamma,courant_factor,smallr,smallc &
@@ -47,9 +44,11 @@ subroutine read_hydro_params(nml_ok)
 #endif
 #ifdef SOLVERmhd
        & ,riemann2d,slope_mag_type,eta_mag &
+       & ,allow_switch_solver, allow_switch_solver2D &
+       & ,switch_solv_B,switch_solv_dens,switch_solv_min_dens &
 #endif
        & ,pressure_fix,beta_fix,scheme,riemann &
-       & ,strict_equilibrium, dens_llf
+       & ,strict_equilibrium
 
   ! Refinement parameters
   namelist/refine_params/x_refine,y_refine,z_refine,r_refine &
