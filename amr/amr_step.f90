@@ -53,17 +53,9 @@ recursive subroutine amr_step(ilevel,icount)
               !--------------------------
               call make_virtual_fine_int(cpu_map(1),i)
               if(hydro)then
-#ifdef SOLVERmhd
-                 do ivar=1,nvar+3
-#else
-                 do ivar=1,nvar
-#endif
+                 do ivar=1,nvar_all
                     call make_virtual_fine_dp(uold(1,ivar),i)
-#ifdef SOLVERmhd
                  end do
-#else
-                 end do
-#endif
                  if(momentum_feedback>0)call make_virtual_fine_dp(pstarold(1),i)
                  if(strict_equilibrium>0)call make_virtual_fine_dp(rho_eq(1),i)
                  if(strict_equilibrium>0)call make_virtual_fine_dp(p_eq(1),i)
@@ -280,17 +272,9 @@ recursive subroutine amr_step(ilevel,icount)
         call synchro_hydro_fine(ilevel,+0.5*dtnew(ilevel),1)
 
         ! Update boundaries
-#ifdef SOLVERmhd
-        do ivar=1,nvar+3
-#else
-        do ivar=1,nvar
-#endif
+        do ivar=1,nvar_all
            call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
         end do
-#else
-        end do
-#endif
         if(simple_boundary)call make_boundary_hydro(ilevel)
 
         ! Compute Bondi-Hoyle accretion parameters
@@ -390,17 +374,9 @@ recursive subroutine amr_step(ilevel,icount)
 
      ! Reverse update boundaries
                                call timer('hydro - rev ghostzones','start')
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         call make_virtual_reverse_dp(unew(1,ivar),ilevel)
-#ifdef SOLVERmhd
      end do
-#else
-     end do
-#endif
      ! MC Tracer
      ! Communicate fluxes accross boundaries
      if(MC_tracer)then
@@ -417,6 +393,17 @@ recursive subroutine amr_step(ilevel,icount)
      if(pressure_fix)then
         call make_virtual_reverse_dp(enew(1),ilevel)
         call make_virtual_reverse_dp(divu(1),ilevel)
+     endif
+
+     ! Add gravity source terms to unew
+     if(poisson)then
+        call add_gravity_source_terms(ilevel)
+     end if
+
+     ! Add non conservative pdV terms to unew
+     ! for thermal and/or non-thermal energies
+     if(pressure_fix.OR.nener>0)then
+        call add_pdv_source_terms(ilevel)
      endif
 
      ! Set uold equal to unew
@@ -498,17 +485,9 @@ recursive subroutine amr_step(ilevel,icount)
   !---------------------------------------
   if((hydro).and.(.not.static_gas))then
                                call timer('hydro - ghostzones','start')
-#ifdef SOLVERmhd
-     do ivar=1,nvar+3
-#else
-     do ivar=1,nvar
-#endif
+     do ivar=1,nvar_all
         call make_virtual_fine_dp(uold(1,ivar),ilevel)
-#ifdef SOLVERmhd
      end do
-#else
-     end do
-#endif
      if(momentum_feedback>0)call make_virtual_fine_dp(pstarold(1),ilevel)
      if(strict_equilibrium>0)call make_virtual_fine_dp(rho_eq(1),ilevel)
      if(strict_equilibrium>0)call make_virtual_fine_dp(p_eq(1),ilevel)
@@ -519,7 +498,7 @@ recursive subroutine amr_step(ilevel,icount)
   ! Magnetic diffusion step
   if((hydro).and.(.not.static_gas))then
      if(eta_mag>0d0.and.ilevel==levelmin)then
-                               call timer('hydro - diffusion','start')
+                               call timer('mhd - diffusion','start')
         call diffusion
      endif
   end if
@@ -594,7 +573,7 @@ end subroutine amr_step
 #ifdef RT
 subroutine rt_step(ilevel)
   use amr_parameters, only: dp
-  use amr_commons,    only: levelmin, t, dtnew, myid
+  use amr_commons,    only: t, dtnew, myid
   use rt_cooling_module, only: update_UVrates
   use rt_hydro_commons
   use UV_module
@@ -622,9 +601,9 @@ subroutine rt_step(ilevel)
   i_substep = 0
   do while (t_left > 0)                      !                RT sub-cycle
      i_substep = i_substep + 1
-     call get_rt_courant_coarse(dt_rt)
+     call get_rt_courant_dt(dt_rt,ilevel)
      ! Temporarily change timestep length to rt step:
-     dtnew(ilevel) = MIN(t_left, dt_rt/2**(ilevel-levelmin))
+     dtnew(ilevel) = MIN(t_left, dt_rt)
      t = t + dtnew(ilevel) ! Shift the time forwards one dt_rt
 
      ! If (myid==1) write(*,900) dt_hydro, dtnew(ilevel), i_substep, ilevel

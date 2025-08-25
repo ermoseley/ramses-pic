@@ -5,6 +5,8 @@
 
 # Do we want a debug build? 1=Yes, 0=No
 DEBUG = 0
+# Do we want to test coverage?
+GCOV = 0
 # Compiler flavor: GNU or INTEL
 COMPILER = GNU
 # Size of vector cache
@@ -44,11 +46,11 @@ NPSCAL = 4
 LONGINT=1
 
 # Compute NVAR
-NVAR = 2+$(NDIM)
+NHYDRO = 2+$(NDIM)
 ifeq ($(SOLVER),mhd)
-   NVAR = 8
+   NHYDRO = 8
 endif
-NVAR := $(NVAR)+$(NENER)+$(NPSCAL)+$(NMETALS)
+NVAR := $(NHYDRO)+$(NENER)+$(NPSCAL)+$(NMETALS)
 ifeq ($(RT),1)
    NVAR := $(NVAR)+$(NIONS)
 endif
@@ -61,10 +63,14 @@ GITHASH = $(shell git log --pretty=format:'%H' -n 1)
 GITREMOTE = $(shell git config --get branch.$(GITBRANCH).remote)
 GITREPO = $(shell git config --get remote.$(GITREMOTE).url)
 BUILDDATE = $(shell date +"%D-%T")
-DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) \
-          -DNVAR=$(NVAR) -DSOLVER$(SOLVER) $(ATON_FLAGS)
+BUILDCOMMAND =${MAKE} ${MAKEFLAGS}
+DEFINES = -DNVECTOR=$(NVECTOR) -DNDIM=$(NDIM) -DNPRE=$(NPRE) -DNENER=$(NENER) 
+          -DNVAR=$(NVAR) -DSOLVER$(SOLVER) 
 ifeq ($(LONGINT),1)
    DEFINES += -DLONGINT
+endif
+ifeq ($(ATON),1)
+   DEFINES += -DATON
 endif
 ifeq ($(GRACKLE),1)
    DEFINES += -Dgrackle
@@ -95,12 +101,18 @@ ifeq ($(COMPILER),GNU)
       F90 = gfortran
       FFLAGS += -DWITHOUTMPI
    endif
-   F90 += -frecord-marker=4 -fbacktrace -ffree-line-length-none -g -fimplicit-none
-   ifeq ($(DEBUG),1)
-      F90 += -O0 -fbounds-check -Wuninitialized -Wall
-      FFLAGS += -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan
+
+   F90 += -frecord-marker=4 -fbacktrace -g -ffree-line-length-none -fimplicit-none
+   FC += -ffree-line-length-none -fimplicit-none
+   ifeq ($(GCOV),1)
+         F90 += -O0 -fprofile-arcs -ftest-coverage
    else
-      F90 += -O3 -ffpe-trap=invalid,zero,overflow
+      ifeq ($(DEBUG),1)
+         F90 += -g -O0 -fbacktrace -fbounds-check -Wuninitialized -Wall
+         FFLAGS += -ffpe-trap=zero,underflow,overflow,invalid -finit-real=nan
+      else
+         F90 += -O3 -ffpe-trap=invalid,zero,overflow
+      endif
    endif
 endif
 
@@ -155,8 +167,10 @@ endif
 VPATH += ../hydro:../pm:../poisson:../amr:../io
 #############################################################################
 # All objects
-MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o random.o pm_parameters.o \
-         pm_commons.o poisson_parameters.o dump_utils.o constants.o file_module.o sink_feedback_parameters.o
+
+MODOBJ = mpi_mod.o amr_parameters.o amr_commons.o amr_constants.o random.o pm_parameters.o sink_feedback_parameters.o \
+         pm_commons.o poisson_parameters.o collapse_parameters.o dump_utils.o constants.o file_module.o
+         
 ifeq ($(GRACKLE),1)
    MODOBJ += grackle_parameters.o
 endif
@@ -172,7 +186,7 @@ ifeq ($(USE_TURB),1)
 endif
 
 AMROBJ = read_params.o init_amr.o init_time.o init_refine.o tracer_utils.o adaptive_loop.o \
-         amr_step.o update_time.o output_amr.o flag_utils.o \
+         amr_step.o update_time.o timer.o output_amr.o flag_utils.o \
          physical_boundaries.o virtual_boundaries.o refine_utils.o \
          nbors_utils.o hilbert.o load_balance.o title.o sort.o cooling_fine.o \
          units.o light_cone.o movie.o memory.o end.o eos.o
@@ -186,7 +200,7 @@ PMOBJ = init_part.o output_part.o rho_fine.o synchro_fine.o move_fine.o \
 	stellar_particle.o init_stellar.o output_stellar.o
 # Poisson solver objects
 POISSONOBJ = init_poisson.o phi_fine_cg.o interpol_phi.o force_fine.o \
-             multigrid_coarse.o multigrid_fine_commons.o multigrid_fine_fine.o \
+             multigrid_fine_commons.o multigrid_fine_fine.o \
              multigrid_fine_coarse.o gravana.o boundary_potential.o rho_ana.o \
              output_poisson.o
 # Hydro objects
@@ -232,7 +246,7 @@ ramses_aton: $(MODOBJ) $(ATON_MODOBJ) $(AMRLIB) $(ATON_OBJ) ramses.o
 write_gitinfo.o: FORCE
 	$(F90) $(FFLAGS) -DPATCH=\'$(PATCH)\' -DGITBRANCH=\'$(GITBRANCH)\' \
 		-DGITHASH=\'"$(GITHASH)"\' -DGITREPO=\'$(GITREPO)\' \
-		-DBUILDDATE=\'"$(BUILDDATE)"\' -c ../amr/write_gitinfo.f90 -o $@
+		-DBUILDDATE=\'"$(BUILDDATE)"\' -DBUILDCOMMAND=\'"$(BUILDCOMMAND)"\' -c ../amr/write_gitinfo.f90 -o $@
 write_makefile.o: FORCE
 	../utils/scripts/cr_write_makefile.sh $(MAKEFILE_LIST)
 	$(F90) $(FFLAGS) -c write_makefile.f90 -o $@
