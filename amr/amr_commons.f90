@@ -110,7 +110,7 @@ module amr_commons
      integer                            ::npart
      integer     ,dimension(:)  ,pointer::igrid
      integer     ,dimension(:,:),pointer::f
-     real(kind=8),dimension(:,:),pointer::u
+     real(kind=i8b),dimension(:,:),pointer::u
      integer(i8b),dimension(:,:),pointer::fp
      real(kind=8),dimension(:,:),pointer::up
 #ifdef ATON
@@ -127,7 +127,7 @@ module amr_commons
   type point_comm
      integer          ,dimension(:),  pointer::igrid
      integer          ,dimension(:,:),pointer::f
-     integer(kind=),dimension(:,:),pointer::f8
+     integer(kind=8),dimension(:,:),pointer::f8
      real(kind=8)     ,dimension(:,:),pointer::u
 #ifdef ATON
      real(kind=8)     ,dimension(:,:),pointer::u_radiation
