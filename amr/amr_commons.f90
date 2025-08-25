@@ -110,7 +110,7 @@ module amr_commons
      integer                            ::npart
      integer     ,dimension(:)  ,pointer::igrid
      integer     ,dimension(:,:),pointer::f
-     real(kind=8),dimension(:,:),pointer::u
+     real(kind=dp),dimension(:,:),pointer::u
      integer(i8b),dimension(:,:),pointer::fp
      real(kind=8),dimension(:,:),pointer::up
 #ifdef ATON
@@ -127,10 +127,10 @@ module amr_commons
   type point_comm
      integer          ,dimension(:),  pointer::igrid
      integer          ,dimension(:,:),pointer::f
-     integer(kind=i8b),dimension(:,:),pointer::f8
-     real(kind=8)     ,dimension(:,:),pointer::u
+     integer(i8b),dimension(:,:),pointer::f8
+     real(dp),dimension(:,:),pointer::u
 #ifdef ATON
-     real(kind=8)     ,dimension(:,:),pointer::u_radiation
+     real(dp),dimension(:,:),pointer::u_radiation
 #endif
   end type point_comm
 
@@ -147,10 +147,10 @@ module amr_commons
     integer,     allocatable,dimension(:)  :: cpuid  ! Number of the active process
     integer,     allocatable,dimension(:)  :: ngrids ! Number of octs to share with each active process
     integer,     allocatable,dimension(:)  :: igrid
-    real(kind=8),allocatable,dimension(:,:):: u
+    real(dp),allocatable,dimension(:,:):: u
     integer,     allocatable,dimension(:,:):: f
 #ifdef ATON
-    real(kind=8),allocatable,dimension(:) ::u_radiation
+    real(dp),allocatable,dimension(:) ::u_radiation
 #endif
 
   end type communicator_varoct
@@ -160,7 +160,7 @@ module amr_commons
     integer :: nparts_tot ! Total number of particles to share
     integer,     allocatable,dimension(:)       :: cpuid  ! Number of the active process
     integer,     allocatable,dimension(:)       :: nparts ! Number of particles to share with each active process
-    real(kind=8),allocatable,dimension(:,:)     :: u
+    real(dp),allocatable,dimension(:,:)     :: u
     integer,     allocatable,dimension(:,:)     :: f
     integer(kind=i8b),allocatable,dimension(:,:):: f8
   end type communicator_varpart

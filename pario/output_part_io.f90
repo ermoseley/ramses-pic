@@ -8,6 +8,7 @@
 
 subroutine backup_part_send
   use amr_commons
+  use amr_parameters
   use pm_commons
   use io_parameters
   use mpi_mod
@@ -17,7 +18,7 @@ subroutine backup_part_send
   integer,parameter::tag=TAG_BAK_PAR
   integer::i,idim,ipart,ierr
   real(dp),allocatable,dimension(:)::xdp
-  integer ,allocatable,dimension(:)::ii
+  integer(i8b) ,allocatable,dimension(:)::ii
   integer ,allocatable,dimension(:)::ll
   integer ,allocatable,dimension(:)::ok
 

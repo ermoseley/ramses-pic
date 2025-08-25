@@ -178,21 +178,56 @@ module amr_parameters
   integer::momentum_feedback=0       ! Use supernovae momentum feedback if cooling radius not resolved
   integer::strict_equilibrium=0      ! Hydro scheme to preserve exactly hydrostatic equilibrium
 
-  ! PIC dust parameters
-  real(dp)::charge_to_mass=0.0       ! Charge to mass ratio for dust grains
-  real(dp)::t_stop=0.0               ! Stopping time for dust grains
-  real(dp)::stopping_rate=-1.0       ! When greater than or equal to zero, overrides t_stop for constant_t_stop==.true. Allows for zero drag.
-  real(dp)::grain_size=0.0           ! Grain size parameter rho_d^i r_d/(rho_g l_0). May wan to get rid of t_stop.
-  logical::boris=.false.             ! Activate boris pusher for PIC solver for grain dynamics
-  logical::constant_t_stop=.false.    ! Dictates whether stopping time is constant t_stop, or uses grain_size, gas density, velocity, etc.
-  logical::second_order=.false.      ! Only works for constant t-stop
-  real(dp)::dust_to_gas=1.0          ! Dust-to-gas mass ratio.
-  real(dp),dimension(1:3)::accel_gr=0 ! constant external grain force
-  integer,dimension(1:MAXOUT)::trajectories=0 ! determines whether or not to output trajectories, which particles to output, and how many.
-  logical :: supersonic_drag=.true.   ! if true, Epstein drag is used. If false, drag depends only on density and the sound speed.
-  integer :: ndust=1                  ! Determines how many dust grains we has as a multiple of the resolution.
-  real(dp):: ddex=0.0                 ! Determines how many decades the dust spectrum spans.
-  real(dp):: charge_slope=0.0         ! Determines how the grain charge scales with grain size (power law option)
+ ! classic tracer                                                                                                            
+  integer:: ntracer=1
+  real(dp):: mhd_pic_loadf=0.0d0
+
+  ! PIC dust parameters                                                                                                       
+  logical::pic_dust=.false.             ! Activate PIC solver for grain dynamics                                              
+  logical::back_reaction=.true.        ! Activate dust (and cr) momentum feedback                                             
+  real(dp)::du_charge_to_mass=0.0       ! Charge to mass ratio for dust grains                                                
+  real(dp)::t_stop=0.0               ! Stopping time for dust grains                                                          
+  real(dp)::stopping_rate=-1.0       ! When greater than or equal to zero, overrides t_stop for constant_t_stop==.true. Allows for zero drag.                                                                                                              
+  real(dp)::grain_size=1.0           ! Grain size parameter rho_d^i r_d/(rho_g l_0).                                          
+  logical::constant_t_stop=.false.    ! Dictates whether stopping time is constant t_stop, or uses grain_size, gas density, velocity, etc.                                                                                                                 
+  logical::universal_charge=.false.   ! makes all grains have the same charge, but drag may vary                              
+  logical::universal_drag=.false.     ! makes all grains have the same drag, but charge may vary                              
+  logical::size_bins=.false.
+  logical::second_order=.false.      ! Only works for constant t-stop. Will implement true 2nd order for no mom. feedback     
+  real(dp)::dust_to_gas=1.0          ! Dust-to-gas mass ratio.                                                                
+  real(dp),dimension(1:3)::accel_gr=0 ! constant external grain force                                                         
+  integer::ntrajectories=0             ! determines whether or not to output trajectories,and how manh to output              
+  integer,dimension(1:MAXOUT)::trajectories=0 ! determines whether or not to output trajectories,and which ones to output     
+  logical :: supersonic_drag=.true.   ! if true, Epstein drag is used. If false, drag depends only on density and the sound speed.                                                                                                                         
+  integer :: ndust=0                  ! Determines how many dust grains we has as a multiple of the resolution.               
+  logical :: mrn_spectrum=.false.      ! Flat mass spectrum otherwise.                                                        
+  real(dp):: ddex=0.0                 ! Determines how many decades the dust spectrum spans                                   
+  real(dp)::chdex=0.0                  ! Only used when sampling species over a grid. Decades spanned for charge.             
+  real(dp):: charge_slope=0.0         ! Determines how the grain charge scales with grain size (power law option). Should be negative.                                                                                                                     
+  real(dp):: gyrofactor=0.1         ! Timesteps per Larmor time of the smallest grains.                                       
+  logical :: real_ids=.false.         ! Should set to true for ids that are initially real numbers.   
+  logical :: shuffled_ids=.false.    ! Shuffles the particle IDs so that you have uniformly distributed grain properties in space.                        
+  integer:: grain_sampling_rate=1 ! For use with size_bins. Makes a grid in charge-drag space when greater than 1. Must divide ndust evenly.
+  logical::stationary_particles=.false. ! If true, particles are initialized with zero velocity, otherwise from e.g. an ic file.                                                                                                               
+  logical :: lognormal = .false.   ! Creates a log-normal grain distribution from +2*sigma to -2*sigma centered at grain_size with sigma=ddex/4                                                                                                            
+  logical :: astrodust = .false. ! Creates an astrodust distribution (Hensley & Draine '23) that extends from peak*10**(-ddex/2) to peak*10**(+ddex/2 (peak (grain_size) = 0.23 microns)                                                                                       
+  logical :: guiding_center=.false. ! If true, uses guiding center approximation for grains. Currently no momentum-feedback                                                                             
+
+  ! PIC cosmic ray parameters (Not yet implemented, but here more as a to-do list.)                                           
+  logical::pic_cr=.false.             ! Activate PIC solver for grain dynamics                                                
+  real(dp)::cr_charge_to_mass=0.0       ! Charge to mass ratio for cosmic rays. Uses the physical speed of light.             
+  real(dp)::cr_lorentzf=2.0              ! initial lorentz factor                                                             
+  real(dp)::cr_to_gas=1.0             ! cr-to-gas mass ratio. This uses the rest mass of the CRs.                             
+  integer :: ncr=0                  ! Determines how many cosmic rays we have as a multiple of the resolution.                
+  integer :: energy_bins=1.0        ! Determines bins for initial CR energy spectrum. Not implemented.                        
+  real(dp):: cdex=0.0                 ! Determines how many decades the cr spectrum spans in energy (momentum?) Not implemented.                                                                                                                           
+  real(dp):: cr_slope=0.0         ! Determines how the grain charge scales with grain size (power law option). Should be negative. Not implemented.                                                                                                        
+  logical:: cr_emf_feedback=.false. ! Not yet implemented. Determines whether or not cosmic rays impact the induction equation.        
+real(dp):: cr_c_fraction=1.0      ! factor for RSOL formulation.                                                            
+real(dp),dimension(1:3):: cr_boost=0 ! Velocity by which to boost the CR population. Must be << c, given current implementation.                                                                                                                         
+logical::beam=.false.                ! Determines whether or not CR distribution is unidirectional                          
+real(dp):: pitch_angle_cos=0.0
+logical::ring=.false.
 
   logical ::self_shielding=.false.
   logical ::pressure_fix=.false.
