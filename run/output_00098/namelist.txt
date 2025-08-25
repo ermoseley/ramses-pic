@@ -1,0 +1,128 @@
+! This is the RAMSES parameter file for the dust driven turbulence.
+
+&RUN_PARAMS
+hydro=.true.
+verbose=.false.
+pic=.true.
+tracer=.true.
+ncontrol=1
+nrestart=0
+nremap=10
+/
+
+&GRAIN_PARAMS
+pic_dust=.true.
+back_reaction=.true.
+size_bins=.false.
+lognormal=.false.
+astrodust=.true.
+mrn_spectrum=.false.
+universal_drag=.false.
+mhd_pic_loadf=2.0d0
+gyrofactor=0.05
+constant_t_stop=.false.
+ddex = 1.0
+ndust=0
+charge_slope=-2.0
+du_charge_to_mass=200 !0.9 micron grain !234.0 ! 1.0 micron
+!t_stop=0.1
+grain_size=0.3 ! variable.
+dust_to_gas=0.01
+second_order=.true.
+shuffled_ids=.false.
+real_ids=.false.
+!ntrajectories=800
+ntracer=1
+!trajectories=1,2097152,4194304,6291456,8388608,10485760,12582912,14680064,16777210
+/
+
+&AMR_PARAMS
+levelmin=5
+levelmax=6
+ngridmax=20000!1000000
+npartmax=20000
+boxlen=1
+/
+&REFINE_PARAMS
+/
+
+&HYDRO_PARAMS
+gamma=1.66666667
+courant_factor=0.8
+scheme='muscl'
+slope_type=1
+riemann='hlld'
+riemann2d='hlld'
+pressure_fix=.true.
+beta_fix=0.5
+dens_llf=3d-2
+/
+
+&INIT_PARAMS
+filetype='grafic'
+initfile(1)='/Users/moseley/ramses-pic/run/ic_dturb/ic_dturb_5'
+!nregion=1
+!region_type='square'
+!x_center=0.5
+!y_center=0.5
+!z_center=0.5
+!length_x=1
+!length_y=1
+!length_z=1
+!exp_region=10
+!d_region=1.0
+!p_region=1.0
+!C_region=4.5
+/
+
+&BOUNDARY_PARAMS
+!nboundary=2
+!ibound_min=-1,1
+!ibound_max=-1,1
+!jbound_min=0,0
+!jbound_max=0,0
+!bound_type=3,1
+!d_bound=3.0
+!u_bound=2.0
+!C_bound=3.0
+/
+
+&OUTPUT_PARAMS
+delta_tout=0.01 ! first output had 0.05
+!foutput=25000
+!noutput=6
+!tout=0.01
+tend=1.0
+!walltime_hrs=24.0 ! job submission allocated time
+!minutes_dump=10.0 ! minutes before to print an output
+/
+
+&UNITS_PARAMS
+units_density=7.0d-23
+units_time=1.1563d15
+units_length=6.17136d19 ! 20 pc
+/
+
+&COOLING_PARAMS
+isothermal=.true.
+T2max=34.25993294742506
+/
+
+&SF_PARAMS
+T2_star=34.25993294742506
+g_star=1 !isothermal
+n_star=1d20
+/
+
+!&TURB_PARAMS
+!turb=.true.
+!turb_type=1         ! 1=forced evolving, 2=forced fixed, 3=decaying
+!turb_seed=42         ! -1 = random
+!comp_frac=0.5       ! compressive fraction
+!!instant_turb=.true. ! Generate initial turbulence before start
+!forcing_power_spectrum='parabolic' !power_law, parabolic, konstandin, test
+!turb_T=0.33 ! 0.29241000937376255
+!turb_Ndt=10       ! Number of timesteps per autocorr. time
+!turb_rms=20      ! rms turbulent forcing acceleration
+!turb_min_rho=1d-5 ! Minimum density for turbulence
+!/

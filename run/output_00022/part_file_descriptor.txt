@@ -1,0 +1,13 @@
+# version:  1
+# ivar, variable_name, variable_type
+ 1, position_x, d
+ 2, position_y, d
+ 3, position_z, d
+ 4, velocity_x, d
+ 5, velocity_y, d
+ 6, velocity_z, d
+ 7, mass, d
+ 8, identity, q
+ 9, levelp, i
+10, family, b
+11, tag, b

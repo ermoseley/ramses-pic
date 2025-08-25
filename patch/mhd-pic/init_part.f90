@@ -869,9 +869,6 @@ end subroutine init_ids
 #ifndef LONGINT
                    call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER,0,MPI_COMM_WORLD,info)
 #else
-                   if (myid==1) then 
-                     write(*,*) 'LONGINT is defined'
-                   endif
                    call MPI_BCAST(init_plane_id,buf_count,MPI_INTEGER8,0,MPI_COMM_WORLD,info)
 #endif
 #endif
