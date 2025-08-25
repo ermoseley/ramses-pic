@@ -489,15 +489,7 @@ read(1,NML=cr_params,END=112)
   !-----------------------------------
   ! Sort out passive variable indices
   !-----------------------------------
-#ifdef SOLVERmhd
-  ! Hard-coded variables are rho,v*ndim,P,B*ndim
-  ! MHD only works in 3D, so ndim=3
-  ifixed=8
-#else
-  ! Hard-coded variables are rho,v*ndim,P
-  ifixed=ndim+2
-#endif
-  inener=ifixed+1
+  inener=nhydro+1
   imetal=inener+nener
   idelay=imetal
   if(metal)idelay=imetal+1
