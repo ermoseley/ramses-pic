@@ -1,5 +1,0 @@
- compile date = 08/17/25-17:26:54
- patch dir    = ../patch/mhd-pic
- remote repo  = https://github.com/ermoseley/ramses-pic.git
- local branch = agent-editing
- last commit  = 11808b295f68bfa564276570f4259b4f90fee4f3
